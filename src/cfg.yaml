@@ -1,0 +1,14 @@
+
+# nb no list of lists, use x, y, z for basis vectors or external dictionary
+
+n_it: !!int 1000
+
+# logging
+entity: !!str xmax1
+project: !!str hwapnet
+sweep_name: !!null None
+wandb: !!bool True
+
+log_metric_it: !!int 100
+log_model_it: !!int 1000
+
