@@ -1,7 +1,5 @@
-import sys
 import os
 from typing import Union
-from inspect import signature
 from datetime import datetime
 import yaml 
 import pickle as pk
@@ -10,19 +8,30 @@ import numpy as np
 
 from prettytable import PrettyTable
 
+PROJECT_HEAD = '../'
+assert os.path.dirname(PROJECT_HEAD) == 'walle', 'change project head in boring utils so it points to walle dir plz'
+
 
 # create exp_name from sweep features
 
 
-def gen_datetime():
+def append_idx(root: str, idx: int = 1) -> str:
+    root_tmp = root + f'_{idx}'
+    while os.path.exists(root_tmp):
+        root_tmp = root + f'_{idx}'
+        idx += 1
+    return root_tmp
+
+
+def gen_datetime() -> str:
     return datetime.now().strftime("%d%b%H%M%S")
 
 
-def now_tag():
+def now_tag() -> str:
     return datetime.now().strftime('%M%S')
 
 
-def format_value(value: float | str | int | list):
+def format_value(value: float | str | int | list) -> str:
     
     if isinstance(value, float): # takes 2 significant figures automatically
         return f'{value:.2g}'  
@@ -41,7 +50,7 @@ def format_value(value: float | str | int | list):
         raise Exception(f'Input cfg {value} not accepted type')
 
 
-def create_sweep_exp_filename(sweep_cfg: dict):
+def create_sweep_exp_filename(sweep_cfg: dict) -> str:
     
     sweep_cfg = {k:sweep_cfg[k] for k in sorted(sweep_cfg.keys())}
     
@@ -85,9 +94,9 @@ def pretty_print_dict(d: dict):
 
 
 def save_pretty_table(data: dict | pd.DataFrame, 
-                      path: str='table.txt',
-                      top: float=100.0, 
-                      bottom: float=0.01):
+                      path: str = 'table.txt',
+                      top: float = 100.0, 
+                      bottom: float = 0.01):
 
     if isinstance(data, pd.DataFrame):
         data = df_to_dict(data, type_filter=[str, object])
@@ -131,16 +140,21 @@ def ojm(*args):
     return oj(*args)
 
 
-def save_pk(data: Union[np.ndarray, dict], path: str):
+def save_pk(data: dict | np.ndarray, path: str):
     with open(path, 'wb') as f:
         pk.dump(data, f)
 
 
-def load_pk(path: str):
+def load_pk(path: str) -> dict | np.ndarray:
     with open(path, 'rb') as f:
         x = pk.load(f)
     return x
 
+
+def save_dict_as_yaml(d: dict, path: str) -> None:
+
+    return None
+    
 
 def load_yaml(path: str) -> dict:
     with open(path) as f:

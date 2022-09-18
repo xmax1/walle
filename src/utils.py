@@ -2,6 +2,7 @@ import sys
 import os
 from typing import Callable, Any
 from inspect import signature
+from subprocess import check_output
 from dataclasses import dataclass, fields
 from ast import literal_eval
 
@@ -63,23 +64,52 @@ def collect_args() -> dict:
     return args
 
 
-class ClassFromDict():
-    def __init__(self, args) -> None:
-
+class Cfg():
+    def __init__(self, args: dict) -> None:
+        
+        self.d = args
         for k, v in args.items():
             setattr(self, k, v)
 
-        self.dict = args
-    
+        self.commitid = commit()
 
-def generate_cfg(path: str) -> ClassFromDict:
+        self.state_file = ojm(self.run_dir, 'state', 'i{:d}.pk')
+        self.cfg_file = ojm(self.run_dir, 'cfg.pk')
+
+        save_pk(self.d, oj(self.run_dir, 'cfg.pk'))
+        save_dict_as_yaml(self.d, oj(self.run_dir, 'cfg.yaml'))
+
+    
+    def get(self, name: str, alternate: str | None = None) -> Any:
+        return self.d.get(name, alternate)
+
+    def __setattr__(self, __name: str, __value: Any) -> None:
+        '''
+        this avoids recursion if calling setattr again within this function
+        '''
+        self.__dict__[__name] = __value
+        self.d[__name] = __value
+        
+    
+def generate_cfg(path: str) -> Cfg:
     command_line_args = collect_args()
     cfg = load_yaml(path) 
     cfg = cfg | {k:type(cfg[k])(v) for k, v in command_line_args.items()}
-    return ClassFromDict(cfg)
+    cfg = Cfg(cfg)
+    return cfg
 
 
-# Experiment management
+# experiment management
+
+
+def commit(exp_name: str) -> str:
+    os.chdir(PROJECT_HEAD)  # make sure we are calling git from the right place
+    os.system('git add .')
+    os.system(f'git commit -m {exp_name}')
+    log = check_output('git log').decode('utf-8')  
+    commitid = log.replace('\n', ' ').split(' ')[1]
+    return commitid
+
 
 
 def collect_data_dict(d: dict, d_new: dict, process: dict[Callable] = {}):

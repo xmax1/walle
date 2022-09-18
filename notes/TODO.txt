@@ -1,9 +1,5 @@
 
 # FRA - SFO Flight
-- install prettytable
-- is there a way to safe type yaml files
-
-- get types from yaml file
 
 - scp automatically files to local machine
 
@@ -11,9 +7,6 @@
     - there should already be ase software for this 
     - negates the need for list of lists
 
-
-- commit and save commit id if slurm 
-
-- gitignore 
-
-- consistent function to create filenames from sweep names
+x commit and save commit id if slurm 
+x gitignore 
+x consistent function to create filenames from sweep names

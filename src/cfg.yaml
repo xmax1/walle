@@ -10,5 +10,5 @@ sweep_name: !!null None
 wandb: !!bool True
 
 log_metric_it: !!int 100
-log_model_it: !!int 1000
+log_state_it: !!int 1000
 

@@ -63,8 +63,7 @@ def create_filename(cfg):
     return hyperparams_name
     
 
-def append_idx(root):
-    idx = 0
+def append_idx(root: str, idx: int = 1):
     root_tmp = root + f'_{idx}'
     while os.path.exists(root_tmp):
         root_tmp = root + f'_{idx}'
