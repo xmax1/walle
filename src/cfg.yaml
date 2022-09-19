@@ -18,4 +18,3 @@ wandb: !!bool True
 
 log_metric_it: !!int 100
 log_state_it: !!int 1000
-

@@ -5,11 +5,12 @@ import yaml
 import pickle as pk
 import pandas as pd
 import numpy as np
+from pathlib import Path
 
 from prettytable import PrettyTable
 
-PROJECT_HEAD = '../'
-assert os.path.dirname(PROJECT_HEAD) == 'walle', 'change project head in boring utils so it points to walle dir plz'
+PROJECT_HEAD = Path(__file__).parent.parent
+assert PROJECT_HEAD.stem == 'walle', f'{PROJECT_HEAD.stem} change project head in boring utils so it points to walle dir plz'
 
 
 # create exp_name from sweep features
@@ -157,10 +158,18 @@ def save_dict_as_yaml(d: dict, path: str) -> None:
     
 
 def load_yaml(path: str) -> dict:
-    with open(path) as f:
-        args = yaml.safe_load(f)
+    with open(path, 'r') as f:
+        args = yaml.load(f, Loader=yaml.FullLoader)
     return args
 
+
+def save_dict_as_yaml(d: dict, path: str):
+
+    with open(path, 'w') as f:
+        for k, v in d.items():
+            t = type(v).__name__
+            line = f'{k}: !!{t} {v} \n'
+            f.writelines(line)
 
 
 

@@ -64,6 +64,24 @@ def collect_args() -> dict:
     return args
 
 
+class DictToClass():
+    def __init__(self, args: dict) -> None:
+        
+        self.d = args
+        for k, v in args.items():
+            setattr(self, k, v)
+
+    def get(self, name: str, alternate: str | None = None) -> Any:
+        return self.d.get(name, alternate)
+
+    def __setattr__(self, __name: str, __value: Any) -> None:
+        '''
+        this avoids recursion if calling setattr again within this function
+        '''
+        self.__dict__[__name] = __value
+        self.d[__name] = __value
+
+
 class Cfg():
     def __init__(self, args: dict) -> None:
         
