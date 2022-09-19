@@ -1,4 +1,11 @@
 
+# Monday morning after the wedding
+
+- dump config yaml file with types
+
+- write hwapinitialisation code
+
+
 # FRA - SFO Flight
 
 - scp automatically files to local machine

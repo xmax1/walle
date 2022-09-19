@@ -1,7 +1,14 @@
 
 # nb no list of lists, use x, y, z for basis vectors or external dictionary
 
+# experiment
 n_it: !!int 1000
+
+# model
+
+
+# optimisation
+
 
 # logging
 entity: !!str xmax1
