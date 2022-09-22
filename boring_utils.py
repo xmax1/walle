@@ -1,15 +1,20 @@
 import os
-from typing import Union
+from tempfile import TemporaryFile
+from typing import Iterable, Union, TextIO, Any
 from datetime import datetime
 import yaml 
 import pickle as pk
 import pandas as pd
 import numpy as np
 from pathlib import Path
+try:
+    import jax.numpy as jnp
+except:
+    import numpy as jnp
 
 from prettytable import PrettyTable
 
-PROJECT_HEAD = Path(__file__).parent.parent
+PROJECT_HEAD = Path(__file__).parent
 assert PROJECT_HEAD.stem == 'walle', f'{PROJECT_HEAD.stem} change project head in boring utils so it points to walle dir plz'
 
 
@@ -75,21 +80,31 @@ def df_to_dict(df: pd.DataFrame, type_filter: list = []) -> dict:
 # printing 
 
 
-def pretty_print_dict(d: dict):
+def pretty_print_dict(d: dict, header: str | None = None):
     
-    print_tmp = lambda k, whitespace, v: print(f'{k}: {whitespace} {v} ({type(v)})')
+    if not header is None:
+        print(header)
+    
+    # print_tmp = print(f'{k}: {(' ' * whitespace):str} {v} ({type(v).__name__})')
+    def print_tmp(k, whitespace, v):
+        whitespace = f' ' * whitespace
+        print(f'{k}: {whitespace} {v} ({type(v).__name__})')
     
     max_chars = max([len(k) for k in d.keys()]) + 3
     
     for k, v in d.items():
+        v = array_to_lists(v) 
         
         whitespace = max_chars - len(k)  # set the whitespace so all prints are aligned
         
-        if isinstance(v, list) and isinstance(v[0], list) and len(v) > 1:
-            print_tmp(k, whitespace, v[0])
-            whitespace += len(k)
-            for l in v[1:]:
-                print_tmp(k, whitespace, l)
+        if isinstance(v, list):
+            if isinstance(v[0], list) and len(v) > 1:
+                print_tmp(k, whitespace, v[0])
+                whitespace += len(k)
+                for l in v[1:]:
+                    print_tmp('', whitespace, l)
+            else:
+                print_tmp(k, whitespace, v)
         else:
             print_tmp(k, whitespace, v)
 
@@ -120,9 +135,7 @@ def save_pretty_table(data: dict | pd.DataFrame,
 
 # handling files
 
-
-oj = os.path.join
-
+oj = Path
 
 def ojm(*args):
     '''
@@ -134,11 +147,13 @@ def ojm(*args):
     creates the directory if it doesn't exist 
     returns the whole path 
     '''
-    path = oj(*args)
-    if '.' in args[-1]:
-        path = '/'.join(args[:-1])
-    os.makedirs(path, exist_ok=True)
-    return oj(*args)
+    path = Path(*args)
+    if path.suffix != '':
+        root = path.parent
+    else:
+        root = path
+    root.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def save_pk(data: dict | np.ndarray, path: str):
@@ -152,10 +167,34 @@ def load_pk(path: str) -> dict | np.ndarray:
     return x
 
 
-def save_dict_as_yaml(d: dict, path: str) -> None:
+try:
+    from jax.numpy import array as make_array
+except:
+    from numpy import array as make_array
 
-    return None
+from yaml import ScalarNode
+
+class Array(yaml.YAMLObject):
+    '''
+    definition of a yaml descriptor
+    node: all the characters indented after the name
+    decomposes to a sequence and can iterate over the sequence by its value
+    '''
+    yaml_tag = u'!jax_or_numpy_arr'
     
+    @classmethod
+    def from_yaml(cls, constructor, node):
+        
+        array = []
+        for sub_node in node.value:
+            print(sub_node.tag)
+            if 'seq' in sub_node.tag:
+                array.append([float(v.value) if 'float' in v.tag else int(v.value) for v in sub_node.value])
+            else:
+                array.append(float(sub_node.value) if 'float' in sub_node.tag else int(sub_node.value))
+
+        return make_array(array)
+
 
 def load_yaml(path: str) -> dict:
     with open(path, 'r') as f:
@@ -163,13 +202,52 @@ def load_yaml(path: str) -> dict:
     return args
 
 
-def save_dict_as_yaml(d: dict, path: str):
+def array_to_lists(v: Any) -> Any:
+    if isinstance(v, np.ndarray) or isinstance(v, jnp.ndarray):
+        v = np.array(v)
+        if np.isscalar(v):
+            v = float(v)
+        elif v.ndim == 1:
+            v = list(v)
+        elif v.ndim == 2:
+            v = [list(x) for x in v]
+        else:
+            print('Can\'t save array with ndim > 2')
+    return v
 
+
+def write_dict(d: dict, f: TextIO):
+    for k, v in d.items():
+        v = array_to_lists(v)
+
+        if type(v) in [str, int, float]:
+            f.writelines(f'{k}: !!{type(v).__name__} {v} \n')
+        
+        if isinstance(v, list):
+            f.writelines('{}: !!seq {} \n'.format(k, v if not isinstance(v[0], list) else ''))
+            if isinstance(v[0], list):
+                for l in v: 
+                    f.writelines(f'  - !!seq {l} \n')
+
+        if isinstance(v, dict):
+            f.writelines(f'{k}: !!map \n')
+            write_dict(v, f)
+
+        if isinstance(v, Path):
+            f.writelines(f'{k}: !!str {v.as_posix()} \n')
+    return 
+
+
+def save_dict_as_yaml(d: dict, path: str):
+    ''' like this to allow recursion '''
     with open(path, 'w') as f:
-        for k, v in d.items():
-            t = type(v).__name__
-            line = f'{k}: !!{t} {v} \n'
-            f.writelines(line)
+        write_dict(d, f)
+        
+
+                
+                
+
+                
 
 
 

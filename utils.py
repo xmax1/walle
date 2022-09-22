@@ -5,6 +5,7 @@ from inspect import signature
 from subprocess import check_output
 from dataclasses import dataclass, fields
 from ast import literal_eval
+from pathlib import Path
 
 import yaml 
 import pickle as pk
@@ -13,6 +14,43 @@ import numpy as np
 
 from boring_utils import *
 from idioms import *
+
+THIS_DIR = Path(__file__).parent
+
+
+# experiment management
+
+
+def commit(exp_name: str) -> str:
+    cwd = os.getcwd()
+    os.chdir(PROJECT_HEAD)  # make sure we are calling git from the right place
+    os.system('git add .')
+    os.system(f'git commit -m {exp_name}')
+    log = check_output('git log').decode('utf-8')  
+    commitid = log.replace('\n', ' ').split(' ')[1]
+    os.chdir(cwd)
+    return commitid
+
+
+def collect_data_dict(d: dict, d_new: dict, process: dict[Callable] = {}):
+    '''
+    creates or appends (axis=0) new data in a dict to a dict containing previous info
+    needs arrays to be squeezed before
+    '''
+    
+    for k, v in d_new.items():
+        v = np.array(v)
+            
+        v = process.get(k, lambda v: v)(v)  # applies a function to v, if function doesn't exist does nothing
+    
+        if k not in d.keys():
+            if isinstance(v, np.ndarray): d[k] = v
+            else: d[k] = [v]
+        else:
+            if isinstance(v, np.ndarray): d[k] = np.concatenate([d[k], v])
+            else: d[k].append(v)
+    
+    return d
 
 
 # Configuration utils 
@@ -65,48 +103,86 @@ def collect_args() -> dict:
 
 
 class DictToClass():
-    def __init__(self, args: dict) -> None:
-        
-        self.d = args
-        for k, v in args.items():
+    def __init__(self, d: dict) -> None:
+        print('here')
+        for k, v in d.items():
             setattr(self, k, v)
 
     def get(self, name: str, alternate: str | None = None) -> Any:
-        return self.d.get(name, alternate)
+        return self.get_dict().get(name, alternate)
 
     def __setattr__(self, __name: str, __value: Any) -> None:
-        '''
-        this avoids recursion if calling setattr again within this function
-        '''
         self.__dict__[__name] = __value
-        self.d[__name] = __value
 
+    def get_dict(self):
+        return self.__dict__
 
-class Cfg():
-    def __init__(self, args: dict) -> None:
+    def keys(self):
+        return self.__dict__.keys()
+
+    def items(self):
+        return self.__dict__.items()
+
+    def get(self, name: str, alternate: str | None = None) -> Any:
+        return self.get_dict().get(name, alternate)
+
+    def save(self):
+        save_pk(self.get_dict(), self.path.with_suffix('.pk'))
+        save_dict_as_yaml(self.get_dict(), self.path.with_suffix('.yaml'))
+
+    def merge(self, 
+              d_new: dict, 
+              tag: str | None = None, 
+              overwrite: bool = False, 
+              only_matching: bool = False):
         
-        self.d = args
-        for k, v in args.items():
+        if not overwrite:
+            print(f'Not updating {[k for k in d_new.keys() if k not in self.keys()]}')
+            d_new_filtered = {k:v for k,v in d_new.items() if k not in self.keys()}
+        
+        if only_matching:
+            d_new_filtered = {k:v for k,v in d_new_filtered.items() if k in self.keys()}
+        
+        for k, v in d_new_filtered.items():
             setattr(self, k, v)
+        
+        if not tag is None:
+            setattr(self, tag, d_new)
 
-        self.commitid = commit()
 
+def save_dict_as_pk_and_yaml(d: dict, path: Path):
+    save_pk(d, path.with_suffix('.pk'))
+    save_dict_as_yaml(d, path.with_suffix('.yaml'))
+
+
+class Cfg(DictToClass):
+    
+    def __init__(self, d: dict) -> None:
+        super().__init__(d = d)
+
+        self.path = Path(*(self.run_dir, 'cfg.pk'))
         self.state_file = ojm(self.run_dir, 'state', 'i{:d}.pk')
-        self.cfg_file = ojm(self.run_dir, 'cfg.pk')
 
-        save_pk(self.d, oj(self.run_dir, 'cfg.pk'))
-        save_dict_as_yaml(self.d, oj(self.run_dir, 'cfg.yaml'))
+        pretty_print_dict(self.get_dict(), header='Config')
+
+        self.save()
+
+    def update_cfg_files(self):
+        
+        cfg_old = load_pk(self.path)
+        
+        for (k, v), v_old in zip(self.items(), cfg_old.values()):
+            if k in cfg_old.keys():
+                if not v_old == v:
+                    print(f'Updating an original cfg parameter {k} from {v_old} to {v}')
+            else:
+                print(f'Adding new key: ', k)
+    
+        self.save()
 
     
-    def get(self, name: str, alternate: str | None = None) -> Any:
-        return self.d.get(name, alternate)
 
-    def __setattr__(self, __name: str, __value: Any) -> None:
-        '''
-        this avoids recursion if calling setattr again within this function
-        '''
-        self.__dict__[__name] = __value
-        self.d[__name] = __value
+
         
     
 def generate_cfg(path: str) -> Cfg:
@@ -115,44 +191,6 @@ def generate_cfg(path: str) -> Cfg:
     cfg = cfg | {k:type(cfg[k])(v) for k, v in command_line_args.items()}
     cfg = Cfg(cfg)
     return cfg
-
-
-# experiment management
-
-
-def commit(exp_name: str) -> str:
-    os.chdir(PROJECT_HEAD)  # make sure we are calling git from the right place
-    os.system('git add .')
-    os.system(f'git commit -m {exp_name}')
-    log = check_output('git log').decode('utf-8')  
-    commitid = log.replace('\n', ' ').split(' ')[1]
-    return commitid
-
-
-
-def collect_data_dict(d: dict, d_new: dict, process: dict[Callable] = {}):
-    '''
-    creates or appends (axis=0) new data in a dict to a dict containing previous info
-    needs arrays to be squeezed before
-    '''
-    
-    for k, v in d_new.items():
-        v = np.array(v)
-            
-        v = process.get(k, lambda v: v)(v)  # applies a function to v, if function doesn't exist does nothing
-    
-        if k not in d.keys():
-            if isinstance(v, np.ndarray): d[k] = v
-            else: d[k] = [v]
-        else:
-            if isinstance(v, np.ndarray): d[k] = np.concatenate([d[k], v])
-            else: d[k].append(v)
-    
-    return d
-
-
-
-
 
 
 ### The Bone Zone
