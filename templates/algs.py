@@ -72,3 +72,8 @@ def compute_pair_correlation():
 
 
     exp_stats = collect_data_dict(exp_stats, exp_stat)
+
+
+if __name__ == '__main__':
+
+    
