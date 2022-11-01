@@ -8,6 +8,7 @@
 *tmp*
 *.vscode
 papers/
+./user.py
 
 # filetypes
 *.ppt

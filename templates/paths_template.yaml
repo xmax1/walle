@@ -1,0 +1,14 @@
+"""
+
+NB//
+out_dir: intentionally blank, out files go in the run_dir 
+plots_dir: plots  # not needed handled in analysis
+"""
+
+model_dir: model
+results_path: results.pk
+out_dir: '' 
+                  
+username: amawi
+server: svol.fysik.dtu.dk
+key: 
