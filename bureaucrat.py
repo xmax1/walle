@@ -1,11 +1,12 @@
-from typing import Any, Callable, Iterable, TextIO
+from typing import Any, Callable, Iterable, TextIO, Tuple
 from subprocess import check_output
-from dataclasses import dataclass, fields
 from pathlib import Path
 import string
 import random
 from datetime import datetime
+from time import time
 from zipfile import ZipFile
+from inspect import signature, Parameter
 
 import yaml 
 import pickle as pk
@@ -13,21 +14,61 @@ import numpy as np
 import pandas as pd
 
 
-# NAMING
+# UTILITY WRAPPERS
 
-def gen_alphanum(n=10):
-    uppers = string.ascii_uppercase
-    lowers = string.ascii_lowercase
-    numbers = ''.join([str(i) for i in range(10)])
-    characters = uppers + lowers + numbers
-    name = ''.join([random.choice(characters) for i in range(n)]) + '.pk'
-    return name
+def robust_wrapper(fn):
+    """ Wrapper for non-essential fns, allowing code to run in the face of bugs
+    
+    - @robust_wrapper(arg0=val, ..., ) potential in idea zone
+    - otherwise uses defaults (predefined)
 
-def gen_datetime() -> str:
-    return datetime.now().strftime("%d%b%H%M%S")
+    NB// 
+    discussion on nested wrappers 
+    https://stackoverflow.com/questions/30904486/python-wrapper-function-taking-arguments-inside-decorator
+    """
+    
+    defaults = {
+        float: 1.,
+        str: 'word',
+        int: 1,
+        dict: {'word': 1},
+        np.ndarray: np.array([1.])
+    }
 
-def now_tag() -> str:
-    return datetime.now().strftime('%M%S')
+    args_for_fail = []
+    for k, p in signature(fn).parameters.items():
+        if p.default == Parameter.empty:
+            args_for_fail.append(defaults[p.annotation])
+
+    def new_fn(*args):
+        try:
+            out = fn(*args)
+        except Exception as e:
+            print(f'Error in {fn.__name__}', e)
+            out = fn(*args_for_fail)
+        return out 
+
+    return new_fn            
+
+
+@robust_wrapper
+def track_time(
+    step: int, 
+    total_step: int, 
+    t0: float, 
+    every_n: int=10,
+    tag: str=''
+):
+    """ Prints time """
+    if step % every_n == 0:
+        d, t0 = time() - t0, time()
+        print(
+            f'{tag} | \
+            % complete: {step/float(total_step):.2f} | \
+            t: {(d):.2f} |'
+        )
+    return t0  # replaces t0 external
+
 
 
 # GIT
@@ -57,18 +98,13 @@ PATHLIB
 make directory parent.mkdir(parents=True, exist_ok=False)
 name takes the directory name if called on directory
 x / '' = x
-
-
 '''
-
-
 def add_to_Path(path: Path, string: str | Path):
     return Path(str(path) + str(string))
 
 
-def mkdir(path: Path, exist_ok: bool = False, iterate: bool = False) -> Path:
+def mkdir(path: Path, generative: bool = False, exist_ok: bool = False, fail_if_exist: bool = False) -> Path:
     ''' TOOL FOR MAKING DIRECTORIES AND CHANGING THE NAME IF IT ALREADY EXISTS '''
-    
     path = Path(path)
     
     if path.suffix != '':
@@ -77,19 +113,66 @@ def mkdir(path: Path, exist_ok: bool = False, iterate: bool = False) -> Path:
     else:
         folder = path
         name = ''
+
+    if generative:
+        if folder.exists():
+            date_tag = date_to_num()
+            folder = add_to_Path(folder, date_tag)
+
+    if exist_ok:
+        folder.mkdir(parents=True, exist_ok=exist_ok)
+    else:
+        if folder.exists():
+            if fail_if_exist:
+                folder.mkdir(parents=True)  # else does nothing and leaves 
+        else:
+            folder.mkdir(parents=True)
     
-    if path.parent.is_dir():
-
-        if iterate:
-            n_exist = len([x for x in folder.iterdir() if x.name.split('-')[0] in str(folder.name)])
-            folder = add_to_Path(folder, f'-{n_exist}')
-
-        if exist_ok:
-            folder.mkdir(parents=True, exist_ok=exist_ok)
-
     path = folder / name
     return path
 
+
+def reorder_and_filter_paths(run_root: Path):
+    root_all = [str(x) for x in run_root.iterdir() if 'run' in str(root.name)]
+
+    rs_all = np.zeros(len(root_all))
+    for i, root in enumerate(root_all):
+        cfg = load_pk(root / 'config1.pk')
+        rs_all[i] = [cfg['density_parameter']]
+    order = np.argsort(rs_all)
+    
+    return [Path(root_all[i]) for i in order]
+
+
+# TIMING
+
+def track_time(
+    step: int, 
+    total_step: int, 
+    t0: float, 
+    every_n: int=10,
+    tag: str=''
+):
+    """ Prints time
+    
+    """
+    if step % every_n == 0:
+        d, t0 = time() - t0, time()
+        print(
+            f'{tag} | \
+            % complete: {step/float(total_step):.2f} | \
+            t: {(d):.2f} |'
+        )
+    return t0  # replaces t0 external
+
+
+def auto_type():
+
+    def typed_fn():
+
+        return 
+
+    return 
 
 
 def join_and_mkdir(*args):
@@ -219,6 +302,11 @@ def load_pk(path: str) -> dict | np.ndarray:
     return x
 
 
+def check_content_pk(d: dict | np.ndarray):
+    for k, v in d.items():
+        print(k, v.shape)
+
+
 # pandas
 
 def df_to_dict(df: pd.DataFrame, type_filter: list = []) -> dict:
@@ -244,6 +332,60 @@ def zip_files(path: Path | list[Path], zip_root: Path, name='files.zip'):
             f.write(str(p), arcname=arcname)
 
 
+from pathlib import Path
+from shutil import copytree, copyfile, rmtree
+import shutil
+
+root = Path('/home/energy/amawi/projects/nn_ansatz/src/experiments/HEG/final1001/14el/baseline/kfac_1lr-3_1d-4_1nc-4_m2048_el14_s128_p32_l3_det1')
+target = Path('/home/energy/amawi/projects/nn_ansatz/src/experiments/PRX_Responses/runs')
+cfg_paths = root.rglob('config*')
+
+for p in cfg_paths:
+    target_dir = (target / p.relative_to(root)).parent
+
+    if not target_dir.exists():
+        target_dir.mkdir(parents=True)
+
+    cfg = target_dir / p.name
+    if cfg.exists():
+        try:
+            cfg.unlink()
+        except:
+            rmtree(cfg)
+
+    copyfile(p, cfg)
+    copytree(str(p.parent / 'models'), str(target_dir / 'models'), dirs_exist_ok=True, )
+
+
+# NAMING
+
+def gen_alphanum(n=10):
+    uppers = string.ascii_uppercase
+    lowers = string.ascii_lowercase
+    numbers = ''.join([str(i) for i in range(10)])
+    characters = uppers + lowers + numbers
+    name = ''.join([random.choice(characters) for i in range(n)]) + '.pk'
+    return name
+
+def gen_datetime() -> str:
+    return datetime.now().strftime("%d%b%H%M%S")
+
+def now_tag() -> str:
+    return datetime.now().strftime('%M%S')
+
+def date_to_num():
+    today = datetime.today()
+    tdelta = today - datetime(year=today.year, month=1, day=1) 
+    name = f'{str(today.year)[2:]}_{tdelta.days}_{str(tdelta.microseconds)[-4:]}'
+    return name
+
+def iterate_folder(folder: Path):
+    exist = [int(x.split('-')[1]) for x in folder.iterdir() if '-' in x.name]
+    for i in range(100):
+        if i in exist:
+            break
+    folder = add_to_Path(folder, f'-{i}')
+    return folder
 
 ### TESTING ###
 

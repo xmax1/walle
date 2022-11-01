@@ -9,13 +9,6 @@ from pathlib import Path
 
 from .bureaucrat import mkdir
 
-try:
-    from user import username, server
-except:
-    print('Couldn\'t import username and server')
-    username, server = '', ''
-
-
 def listdir_r(sftp, remotedir):
     for entry in sftp.listdir_attr(remotedir):
         remotepath = remotedir + "/" + entry.filename
@@ -28,8 +21,8 @@ def listdir_r(sftp, remotedir):
 
 
 def fetch(
-    username=username,
-    server=server,
+    username: str=None,
+    server: str=None,
     server_dir=None,
     target_dir=None,            # the directory it is going in
     avoid: list = None,
