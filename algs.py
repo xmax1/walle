@@ -32,7 +32,7 @@ def run_vmc(cfg_path: str | None = None):
         group = c.sweep_name,
         mode = c.wandb,
         config = c.dict
-    )   
+    )
 
     exp_stats = {}
     for it in c.n_it:
