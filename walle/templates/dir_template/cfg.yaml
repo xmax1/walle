@@ -1,0 +1,38 @@
+
+# nb no list of lists, use x, y, z for basis vectors or external dictionary
+
+# hardware
+n_devices: !!int 1
+device: !!str gpu
+
+# experiment
+n_it: !!int 1000
+precision: !!int 32  # 32 or 64
+
+# 
+n_walkers: !!int 128
+target_acceptance: !!float 0.5
+
+# system
+system: !!str H  # H_cell_3+
+
+kappa: !!float 0.5
+atol: !!float 0.01
+
+# model
+psplit_spins: !!bool True
+jastrow: !!bool False
+af: !!str 'tanh'  # activation_function
+
+
+# optimisation
+
+
+# logging
+entity: !!str xmax1
+project: !!str hwapnet
+sweep_name: !!null None
+wandb: !!bool True
+
+log_metric_it: !!int 100
+log_state_it: !!int 1000
