@@ -364,7 +364,7 @@ def gen_alphanum(n=10):
     lowers = string.ascii_lowercase
     numbers = ''.join([str(i) for i in range(10)])
     characters = uppers + lowers + numbers
-    name = ''.join([random.choice(characters) for i in range(n)]) + '.pk'
+    name = ''.join([random.choice(characters) for i in range(n)])
     return name
 
 def gen_datetime() -> str:
