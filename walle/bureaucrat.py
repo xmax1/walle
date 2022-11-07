@@ -16,6 +16,7 @@ import pandas as pd
 
 # UTILITY WRAPPERS
 
+
 def robust_wrapper(fn):
     """ Wrapper for non-essential fns, allowing code to run in the face of bugs
     
@@ -366,6 +367,14 @@ def gen_alphanum(n=10):
     characters = uppers + lowers + numbers
     name = ''.join([random.choice(characters) for i in range(n)])
     return name
+
+# def gen_alphanum(n=10):
+#     uppers = string.ascii_uppercase
+#     lowers = string.ascii_lowercase
+#     numbers = ''.join([str(i) for i in range(10)])
+#     characters = uppers + lowers + numbers
+#     name = ''.join([rng.choice(characters, replace=True) for i in range(n)])
+#     return name
 
 def gen_datetime() -> str:
     return datetime.now().strftime("%d%b%H%M%S")

@@ -6,61 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from bureaucrat import save_pk, load_pk, load_yaml, save_dict_as_yaml, join_and_mkdir, pretty_print_dict
-from idiomatic import zip_in_n_chunks
-
-booleans = ['True', 'true', 't', 'False', 'false', 'f']
-
-
-# CONFIGURATION INPUTS
-
-def create_types(args: dict) -> dict:
-    """ converts command line arguments to types
-    
-    NB//
-    works with [bytes, numbers, tuples, lists, dicts, sets, booleans, None, Ellipsis]
-    crashes on string, so an exception is called
-    """
-    
-    typed_args = {}
-    for k, v in args.items():
-        
-        if v in booleans:  # in case the boolean argument isn't written correct
-            v = ('t' in v) or ('T' in v)
-        else:
-            try:
-                v = literal_eval(v)
-            except Exception as e:
-                v = str(v)
-
-        typed_args[k] = v
-    
-    return typed_args
-
-
-def collect_args() -> dict:
-    """
-    NB//
-    assumes arguments to any experiment are --arg_name value
-    """ 
-    
-    if len(sys.argv) == 1:
-        args = {}
-    else:
-        args = iter(sys.argv[1:])
-        args = ' '.join(sys.argv[1:])
-        args = args.split('--')[1:]  # first element is blank, 
-        args = [a.split(' ', 1) for a in args]  # split(chat, max_splits) 
-        args = [x.replace(' ', '') for sub_list in args for x in sub_list]  # make iterable so can iterate in 2s
-        args = {k.replace('-', ''):v for k, v in zip_in_n_chunks(args, 2)}
-
-        # alternate
-        args = iter(sys.argv[1:])
-        args = [a.replace('-', '').replace(' ', '') for a in args]  # replace default is to replace all values
-        args = {k:v for k, v in zip_in_n_chunks(args, 2)}
-    
-    return args
-
+from bureaucrat import save_pk, load_pk, load_yaml, save_dict_as_yaml, join_and_mkdir
 
 class BaseGet():
     
@@ -174,35 +120,35 @@ class DictToClass(BaseGet):
             setattr(self, tag, d_new)
 
 
-class Cfg(DictToClass):
+# class Cfg(DictToClass):
     
-    def __init__(self, d: dict) -> None:
-        super().__init__(d = d)
+#     def __init__(self, d: dict) -> None:
+#         super().__init__(d = d)
 
-        self.path = Path(*(self.run_dir, 'cfg.pk'))
-        self.state_file = join_and_mkdir(self.run_dir, 'state', 'i{:d}.pk')
+#         self.path = Path(*(self.run_dir, 'cfg.pk'))
+#         self.state_file = join_and_mkdir(self.run_dir, 'state', 'i{:d}.pk')
 
-        pretty_print_dict(self.get_dict(), header='Config')
+#         pretty_print_dict(self.get_dict(), header='Config')
 
-        self.save()
+#         self.save()
 
-    def update_cfg_files(self):
+#     def update_cfg_files(self):
         
-        cfg_old = load_pk(self.path)
+#         cfg_old = load_pk(self.path)
         
-        for (k, v), v_old in zip(self.items(), cfg_old.values()):
-            if k in cfg_old.keys():
-                if not v_old == v:
-                    print(f'Updating an original cfg parameter {k} from {v_old} to {v}')
-            else:
-                print(f'Adding new key: ', k)
+#         for (k, v), v_old in zip(self.items(), cfg_old.values()):
+#             if k in cfg_old.keys():
+#                 if not v_old == v:
+#                     print(f'Updating an original cfg parameter {k} from {v_old} to {v}')
+#             else:
+#                 print(f'Adding new key: ', k)
     
-        self.save()
+#         self.save()
 
 
-def generate_cfg(path: str) -> Cfg:
-    command_line_args = collect_args()
-    cfg = load_yaml(path) 
-    cfg = cfg | {k:type(cfg[k])(v) for k, v in command_line_args.items()}
-    cfg = Cfg(cfg)
-    return cfg
+# def generate_cfg(path: str) -> Cfg:
+#     command_line_args = collect_args()
+#     cfg = load_yaml(path) 
+#     cfg = cfg | {k:type(cfg[k])(v) for k, v in command_line_args.items()}
+#     cfg = Cfg(cfg)
+#     return cfg

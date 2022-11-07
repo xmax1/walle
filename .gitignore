@@ -14,10 +14,16 @@ papers/
 *.ppt
 *.pptx
 *.pk
+*.png
+*.jpeg
+*.err
+*.out
 
-# local directories
+# local directories (start with slash - in root. end with slash / anywhere)
 data/*/
 logs/
+wandb/
+
 
 # machine utilities
 *powershell*
