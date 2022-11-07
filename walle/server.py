@@ -4,6 +4,7 @@ import shutil
 import os
 import io
 
+from subprocess import check_output
 import paramiko
 from pathlib import Path
 
@@ -18,7 +19,6 @@ def listdir_r(sftp, remotedir):
         elif S_ISREG(mode):
             if not ((remotepath[-1] == '.') or (remotepath[-2:] == '..') or (remotepath == '')):
                 print(remotepath)
-
 
 def fetch(
     username: str=None,
@@ -68,6 +68,26 @@ def fetch(
                 print(e)
 
     sftp.close()
+
+
+### GIT ###
+def commit(exp_name: str) -> str:
+    ''' 
+    
+    NB
+    - Don't need to include walle functionality because assuming walle stable
+    '''
+
+    import os
+
+    cwd = os.getcwd()
+    os.chdir(PROJECT_HEAD)  # make sure we are calling git from the right place
+    os.system('git add .')
+    os.system(f'git commit -m {exp_name}')
+    log = check_output('git log').decode('utf-8')  
+    commitid = log.replace('\n', ' ').split(' ')[1]
+    os.chdir(cwd)
+    return commitid
 
 
 def fetch_from_folders(folders: list, rss: list, fnames: list, server: str, save_dir: str = 'walkers'):

@@ -55,6 +55,10 @@ def run_single_slurm(
         module load CUDA/11.4.1 \n \
         module load cuDNN/8.2.2.26-CUDA-11.4.1 \n \
         conda activate {env} \n \
+        export MKL_NUM_THREADS=1 \n \
+        export NUMEXPR_NUM_THREADS=1 \n \
+        export OMP_NUM_THREADS=1 \n \
+        export OPENBLAS_NUM_THREADS=1 \n \
         pwd \n \
         nvidia-smi \n \
         out_dir={run_dir} \n \

@@ -8,7 +8,6 @@ nvidia-smi -L
 
 # Get more info
 nvidia-smi -q
-
 '''
 
 def get_gpu_utilisation():
@@ -33,9 +32,11 @@ def get_free_gpu_id():
     return None
 
 
+def count_device():
+    # TODO this
+    return 1
 
-
-# BONEZONE
+### BONEZONE ### 
 
 def get_gpu_utilisation_dep():
     ''' Works on gpustat on compute cluster

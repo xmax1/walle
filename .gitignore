@@ -1,5 +1,8 @@
 
+# user details
+*/user.py
 
+# junk
 *.idea
 *.pyc
 *.ipynb_*
