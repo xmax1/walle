@@ -6,6 +6,36 @@
 
 # YAML
 
+
+def what_the_fuck_does_this_do_oh_I_think_it_lets_you_set_args_for_wrapper(*args, **kwargs):
+    def decorator(fn):
+        def wrapped(*fn_args, **fn_kwargs):
+            new_args = [t(raw) for t, raw in zip(args, fn_args)]
+            new_kwargs = dict([(k, kwargs[k](v)) for k, v in fn_kwargs.items()])
+            return fn(*new_args, **new_kwargs)
+        return wrapped
+        '''
+@signature(int, int)
+def foo(x, y):
+    print type(x)
+    print type(y)
+    print x+y
+
+>>> foo('3','4')
+<type: 'int'>
+<type: 'int'>
+7
+'''
+    return decorator   
+    
+
+def walk_up_to_git_from_here():
+    this_dir = Path(__file__)
+    for p in Path(this_dir).absolute().parents:
+        if (p / '.git').is_file():
+            return p 
+
+            
 class Array(yaml.YAMLObject):
     '''
     definition of a yaml descriptor

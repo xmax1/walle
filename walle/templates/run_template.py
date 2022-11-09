@@ -2,11 +2,9 @@
 
 import wandb
 from pathlib import Path
-from paths import experiments_dir
-from tqdm import tqdm, trange
 from time import time
 
-from walle.config import collect_args, create_types
+from walle.submit import collect_args, create_types
 
 
 args = collect_args()

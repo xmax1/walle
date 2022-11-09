@@ -1,3 +1,9 @@
+# commments and doc strings
+## doc strings
+- NB    useful note
+- NB!!  breaking case
+- EDU   useful educational note
+
 
 TODO
 - move fetch to analysis

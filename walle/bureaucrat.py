@@ -3,6 +3,8 @@ from pathlib import Path
 from time import time
 from datetime import datetime
 from zipfile import ZipFile
+from pathlib import Path
+from shutil import copytree, copyfile, rmtree
 
 import numpy as np
 import pandas as pd
@@ -12,6 +14,11 @@ import json
 import pickle as pk
 
 from difflib import get_close_matches
+from safe_utils import wtype
+
+ascii_uppercase = string.ascii_uppercase
+ascii_lowercase = string.ascii_lowercase
+sPath = str | Path
 
 ''' NOTES
 Details on distinguishing between dicts / classes etc
@@ -20,13 +27,23 @@ https://towardsdatascience.com/battle-of-the-data-containers-which-python-typed-
 JSON Allowed types: Dictionary List Tuple String Integer Float Boolean None
 '''
 
-TODAY = datetime.today()
-ascii_uppercase = string.ascii_uppercase
-ascii_lowercase = string.ascii_lowercase
+def gen_datetime() -> str:
+    return datetime.now().strftime("%d%b%H%M%S")
+
+def now_tag() -> str:
+    return datetime.now().strftime('%M%S')
+
+def date_to_num():
+    tdelta = today - datetime(year=today.year, month=1, day=1) 
+    name = f'{str(today.year)[2:]}_{tdelta.days}_{str(tdelta.microseconds)[-4:]}'
+    return name
+
+today = datetime.today()
+today_n = date_to_num()
 
 ### HANDLING DIRECTORIES & PATHS ###
-def mkdir(path: str | Path):
-    path = Path(path)
+@wtype
+def mkdir(path: Path) -> Path:
     if path.suffix != '':
         path = path.parent
     if path.exists():
@@ -35,9 +52,8 @@ def mkdir(path: str | Path):
         path.mkdir(parents=True)
     return path
 
-
 ### HANDLING FILES ###
-def find_file(path, name):
+def find_file(path: Path, name: str) -> Path:
     f = list(path.rglob(name))
     if len(f) > 1:
         print('More than one file found, use find files to get all')
@@ -47,10 +63,9 @@ def write_dict_to_json(d: dict, f: TextIO):
     # TODO
     return 
 
-def save_pk(x: Any, path: str | Path):
+def save_pk(x: Any, path: Path):
     with open(path, 'wb') as f:
         pk.dump(x, f)
-    return
 
 def load_pk(path: str | Path):
     with open(path, 'rb') as f:
@@ -71,7 +86,6 @@ def check_content_dict(d: dict | np.ndarray):
     for k, v in d.items():
         print(k, v.shape)
 
-
 ### TYPES ####
 def to_numpy(x: Any):
     """ converts arrays and lists to numpy, else does nothing """
@@ -81,6 +95,7 @@ def to_numpy(x: Any):
         return x
     else:
         print(f'to_numpy does not recognise {type(x)}')
+        
         
 def array_to_lists(v: np.ndarray | float | int) -> Any:
     if np.isscalar(v):
@@ -104,14 +119,13 @@ def to_standard_type(x: Any):
     else:
         print(f'to_standard_type does not recognise {type(x)}')
 
-
 ### PANDAS ###
 def df_to_dict(df: pd.DataFrame, type_filter: list = []) -> dict:
     return {c:np.array(df[c]) for c in df.columns if df[c].dtypes not in type_filter}
 
 
 ### ZIP ###
-def zip_files(path: Path | list[Path], zip_root: Path, name='files.zip'):
+def zip_files(path: Path | list[Path], zip_root: Path, name: str = 'files.zip'):
     
     if isinstance(path, list):
         pass
@@ -128,21 +142,10 @@ def zip_files(path: Path | list[Path], zip_root: Path, name='files.zip'):
 
 
 ### NAMING ###
-def gen_alphanum(n=7):
+def gen_alphanum(n: int = 7):
     numbers = ''.join([str(i) for i in range(10)])
     characters = ascii_uppercase + ascii_lowercase + numbers
     name = ''.join([random.choice(characters) for _ in range(n)])
-    return name
-
-def gen_datetime() -> str:
-    return datetime.now().strftime("%d%b%H%M%S")
-
-def now_tag() -> str:
-    return datetime.now().strftime('%M%S')
-
-def date_to_num():
-    tdelta = TODAY - datetime(year=TODAY.year, month=1, day=1) 
-    name = f'{str(TODAY.year)[2:]}_{tdelta.days}_{str(tdelta.microseconds)[-4:]}'
     return name
 
 def add_to_Path(path: Path, string: str | Path):
@@ -155,143 +158,13 @@ def iterate_folder(folder: Path):
             return add_to_Path(folder, f'-{i}')
     raise Exception
 
-
-### UTILITY CLASSES ###
-class wClass():
-
-    @property
-    def d(self):
-        return self.__dict__
-
-    def keys(self):
-        return self.d.keys()
-
-    def items(self):
-        return self.d.items()
-
-    def get(self, k):
-        return self.d[k]
-
-    def maybe_fudge_key(self, k: str):
-        if k not in self.keys():
-            print(f'Finding closest match for name {k} getter, maybe you have a lil buggy bug boop')
-            match = get_close_matches(k, self.keys(), n=1, cutoff=0.5)[0]  # returns list, 
-            print(f'Guessing {(k := match)} for key attempt {k}')
-        return k
-
-    def __getattr__(self, k: str) -> Any:
-        k = self.maybe_fudge_key(k)
-        return self.d[k]
-    
-class Config(wClass):
-    
-    def __init__(self, d: dict) -> None:
-        super().__init__()
-
-        for k, v in d.items():
-            setattr(self, k, v)
-
-    def __setattr__(self, k: str, v: Any) -> None:
-        self.d[k] = v
-
-class Stats(wClass):
-    
-    def __init__(self):
-        super().__init__()
-
-    def __setattr__(self, k: str, v: int | float | Iterable) -> None:
-        
-        v = np.array(v)
-        
-        if v.ndim == 0: 
-            v = v[None]
-
-        if k not in self.keys():
-            self.d[k] = v
+@wtype
+def remove_path(path: Path):
+    if path.exists():
+        if path.is_file():
+            path.unlink()
         else:
-            self.d[k] = np.concatenate([self.d[k], v], axis=0)
-
-    def set_by_name(self, k, v):
-        self.__setattr__(k, v)
-
-    def process(self, names: str | list, fn: Callable):
-        if isinstance(names, str):
-            self.d[names] = np.array(fn(self.d[names]))
-        else:
-            for name in names:
-                self.d[name] = np.array(fn(self.d[name]))
-
-    def overwrite(self, k, v):
-        self.d[k] = np.array(v)
-
-
-### BETA ### 
-def gen_similar(k: str):
-    k_s = k + 's' if not k[-1] == 's' else k[:-1]
-    return [k, k_s]
-
-dictionary = {
-    'd': ['dict', 'dic', 'd'],
-    'keys': ['key', 'k', 'ky'],
-}
-
-
-def remove_files_dep():
-    from pathlib import Path
-    from shutil import copytree, copyfile, rmtree
-    import shutil
-
-    root = Path('/home/energy/amawi/projects/nn_ansatz/src/experiments/HEG/final1001/14el/baseline/kfac_1lr-3_1d-4_1nc-4_m2048_el14_s128_p32_l3_det1')
-    target = Path('/home/energy/amawi/projects/nn_ansatz/src/experiments/PRX_Responses/runs')
-    cfg_paths = root.rglob('config*')
-
-    for p in cfg_paths:
-        target_dir = (target / p.relative_to(root)).parent
-
-        if not target_dir.exists():
-            target_dir.mkdir(parents=True)
-
-        cfg = target_dir / p.name
-        if cfg.exists():
-            try:
-                cfg.unlink()
-            except:
-                rmtree(cfg)
-
-        copyfile(p, cfg)
-        copytree(str(p.parent / 'models'), str(target_dir / 'models'), dirs_exist_ok=True, )
-
-
-
-def mkdir_dep(path: Path, generative: bool = False, exist_ok: bool = False, fail_if_exist: bool = False) -> Path:
-    ''' TOOL FOR MAKING DIRECTORIES AND CHANGING THE NAME IF IT ALREADY EXISTS '''
-    path = Path(path)
-    
-    if path.suffix != '':
-        folder = path.parent
-        name = path.name
-    else:
-        folder = path
-        name = ''
-
-
-    if generative:
-        if folder.exists():
-            date_tag = date_to_num()
-            folder = add_to_Path(folder, date_tag)
-
-    if exist_ok:
-        folder.mkdir(parents=True, exist_ok=exist_ok)
-    else:
-        if folder.exists():
-            if fail_if_exist:
-                folder.mkdir(parents=True)  # else does nothing and leaves 
-        else:
-            folder.mkdir(parents=True)
-    
-    path = folder / name
-    return path
-
+            rmtree(path)
 
 ### TESTING ###
 def tests():

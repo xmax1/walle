@@ -21,7 +21,6 @@ mpl_cmaps = {x: plt.get_cmap(x) for x in mpl_cmap_list}
 
 cmaps = walle_cmaps | mpl_cmaps
 
-
 def get_cmap(name: str, iterable: bool = True):
     # cmap = get_cmap('viridis', iterable=False)
     # cmap = plt.get_cmap('viridis')
@@ -33,48 +32,36 @@ def get_cmap(name: str, iterable: bool = True):
         return cmap
     
 
-@dataclass
-class PlotObj():
-    x: Any = None
-    y: Any = None
-    name: str | None = None
-    label: str | None = None
-    pairs: None = None  # this is filth
-
-    def __post_init__(self):
-        self.xlabel = self.pairs.get(self.x, self.x)
-        self.ylabel = self.pairs.get(self.y, self.y)
-        
-
-
 def plot_setup(
-    fsize   =15,
-    tsize   =18, 
-    tdir    ='in',
-    major   =5.0,
-    minor   =3.0,
-    lwidth  =0.8,
-    lhandle =2.0,
-    usetex  =True,
-    style   ='default',
+    fsize   = 15,
+    tsize   = 18, 
+    tdir    = 'in',
+    major   = 5.0,
+    minor   = 3.0,
+    lwidth  = 0.8,
+    lhandle = 2.0,
+    usetex  = True,
+    style   = 'default',
     figsize = (5, 5),
     figshape= (1, 1),
 ):
-
     plt.style.use(style)
+
     plt.rcParams['text.usetex'] = usetex
     plt.rcParams['font.size'] = fsize
     plt.rcParams["font.family"] = "serif"
     plt.rcParams["font.serif"] = ["Times New Roman"]
 
-    plt.rcParams['legend.fontsize'] = tsize
+    plt.rcParams['axes.linewidth'] = lwidth
+
     plt.rcParams['xtick.direction'] = tdir
     plt.rcParams['ytick.direction'] = tdir
     plt.rcParams['xtick.major.size'] = major
     plt.rcParams['xtick.minor.size'] = minor
     plt.rcParams['ytick.major.size'] = 5.0
     plt.rcParams['ytick.minor.size'] = 3.0
-    plt.rcParams['axes.linewidth'] = lwidth
+
+    plt.rcParams['legend.fontsize'] = tsize
     plt.rcParams['legend.handlelength'] = lhandle
 
     fig, axs = plt.subplots(*figshape, figsize=(figshape[1]*figsize[1], figshape[0]*figsize[0]))
@@ -214,71 +201,46 @@ def save_pretty_table_pandas(df: pd.DataFrame, path='table.txt', cols=None, top=
         f.write(str(table))
 
 
-# latex
-
+### LATEX ###
 def get_precision(x):
   prec = -int(floor(log10(abs(x))))
   return prec
 
-
 def gen_latex_table_rows(
-    d: dict, 
-    norm_table: pd.DataFrame, 
-    cols: list, 
-    fname: str,
-    cmap = mpl_cmaps['plasma']
-    ):
-
-    # import numpy as np
-    # cmap = colormaps['plasma']
-    # xcmap = np.linspace(0, 1., 100)
-    # rgb = cmap(xcmap)
-
-    # cols = ['Functional Groups', 'Proportion', 'Accuracy', 'Recall', 'Precision', 'F-1', 'AUC']
-    # summary_stats['Functional Groups'] = f_groups
-    # for fg in f_groups:
-    #   summary_stats[fg]['Proportion'] = proportion[fg]
-    
-    # table = []
-    # for fg in f_groups:
-    #   tmp = [summary_stats[fg][c] for c in cols[1:]]
-    #   table.append(tmp)
-    # table = pd.DataFrame(table, columns=cols[1:])
-    # norm_table = table.max(axis=0)
-
-    # order_idxs = np.argsort(table['Proportion'])
-
-    # summary_stats['Functional Groups'] = summary_stats['Functional Groups'][order_idxs[::-1]]
-
-    # gen_latex_table_rows(summary_stats, norm_table, cols, './test.csv')
-
-  header = '&'.join(cols) + ' \\\\ \n'
-  with open(fname, "w") as f:
-    f.write(header)
-    for fg in d['Functional Groups']:
-      row = [fg]
-      for col in cols[1:]:
-        val = d[fg][col]
-        std_name = col + '_std'
-        prec = 2
-        if std_name in d[fg].keys():
-          std = d[fg][std_name]
-          # prec = get_precision(std)
-          err = f'({str(std).lstrip("0.")[prec]})'
-        else:
-          err = ''
-        print(val/1.1*norm_table[col])
-        rbg = np.array(cmap(val/(1.1*norm_table[col])))[:3]
-        rgb = ','.join([f"{x:.2f}".lstrip('0').strip(' ') for x in rbg])
-        
-        if not col == 'Proportion':
-          row.append((f'\cellcolor[rgb]{{{rgb}}} $' + str(val)[:2+prec] + str(err) + '$').strip())
-        else:
-          row.append(f'${str(val)[:2+prec]}$')
-      
-      f.write(' & '.join(row) + ' \\\\ \n')
+    d           : dict, 
+    norm_table  : pd.DataFrame, 
+    cols        : list, 
+    fname       : str,
+    cmap        : plt.Color = mpl_cmaps['plasma'],
+):
+    header = '&'.join(cols) + ' \\\\ \n'
+    with open(fname, "w") as f:
+        f.write(header)
+        for fg in d['Functional Groups']:
+            row = [fg]
+            for col in cols[1:]:
+                val = d[fg][col]
+                std_name = col + '_std'
+                prec = 2
+                if std_name in d[fg].keys():
+                    std = d[fg][std_name]
+                    # prec = get_precision(std)
+                    err = f'({str(std).lstrip("0.")[prec]})'
+                else:
+                    err = ''
+                    print(val/1.1*norm_table[col])
+                    rbg = np.array(cmap(val/(1.1*norm_table[col])))[:3]
+                    rgb = ','.join([f"{x:.2f}".lstrip('0').strip(' ') for x in rbg])
+                
+                if not col == 'Proportion':
+                    row.append((f'\cellcolor[rgb]{{{rgb}}} $' + str(val)[:2+prec] + str(err) + '$').strip())
+                else:
+                    row.append(f'${str(val)[:2+prec]}$')
+            
+            f.write(' & '.join(row) + ' \\\\ \n')
 
 
+### PANDAS ###
 
 
 
