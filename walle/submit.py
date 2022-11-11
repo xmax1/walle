@@ -4,21 +4,16 @@ from importlib import import_module
 from contextlib import redirect_stdout
 from ast import literal_eval
 import io
+import re
 from stat import S_ISDIR, S_ISREG
-import shutil
 
 import paramiko
 from simple_slurm import Slurm
 from pathlib import Path
 
-from bureaucrat import mkdir, today_n, Config
-from idiomatic import zip_in_n_chunks, flatten_lst_of_lst 
-from safe_utils import wtype
-
-### CFG ###
-@wtype
-def load_cfg(cfg_path: Path):
-    return import_module(cfg_path).cfg()
+from bureaucrat import mkdir
+from idiomatic import zip_in_n_chunks, flat_list 
+from wutils import wtype
 
 ### GPUS ###
 def count_gpu() -> int:
@@ -161,6 +156,27 @@ def git_pull(project_dir: str | Path, remote: str = 'origin', branch: str = 'mai
     stdout = run_cmd(f'git pull {remote} {branch}', cwd=project_dir)
     return stdout
 
+def git_connect_repo(
+    target: str|Path,
+    remote: str|Path,
+    branch: str     = 'main',
+    msg:    str     = 'First WALLE commit, congratulations',
+):
+    run_cmd('git init', cwd=target)
+    run_cmd('git add .', cwd=target)
+    run_cmd('git add .', cwd=target)
+    run_cmd(f'git commit -m {msg}', cwd=target)
+    run_cmd(f'git branch -M {branch}', cwd=target)
+    if remote is not None:
+        run_cmd(f'git remote add origin {remote}', cwd=target)
+        run_cmd(f'git push -u {remote} {branch}', cwd=target)    
+        print(f'New project repo initialised and pushed to {remote}')
+    else:
+        print('repo initialised BUT !! not pushed. Add remote next time.')
+
+
+def make_exp(exp_name: Path, exp_path: Path = None):
+    return 
 
 tmp = mkdir(Path('./tmp'))
 mv_cmd = f'mv {tmp}/o-$SLURM_JOB_ID.out {tmp}/e-$SLURM_JOB_ID.err $out_dir'
@@ -170,6 +186,7 @@ def run_single_slurm(
     exp_path    : Path,
     sbatch_cfg  : str,
     slurm_cfg   : dict,
+    sweep       : bool = False,
     **exp_kwarg
 ) -> None:
     """ 
@@ -177,6 +194,8 @@ def run_single_slurm(
     NB  creates out_dir and moves err and out files after run 
     EDU slurm config details https://slurm.schedmd.com/pdfs/summary.pdf """   
     
+    # TODO slurm = Slurm(array=range(3, 12), job_name='name')
+    # TODO slurm.set_dependency(dict(after=65541, afterok=34987))
     slurm = Slurm(
         output =    tmp / 'o-%j.out',
         error  =    tmp / 'e-%j.err',
@@ -190,7 +209,7 @@ def run_single_slurm(
     print('RUNNING: \n ', cmd)
     slurm.sbatch(
         sbatch_cfg + 
-        f'out_dir={(mkdir(exp_path/"out"))} \n \
+        f'out_dir={(mkdir(exp_path))} \n \
         {cmd} | tee {(exp_path/"py.out")} \n \
         {mv_cmd} \n \
         date "+%B %V %T.%3N" '
@@ -200,7 +219,7 @@ def run_single_slurm(
 
 booleans = ['True', 'true', 't', 'False', 'false', 'f']
 
-def get_sys_arg():
+def get_sys_arg() -> dict:
     """ collects arguments from sys and parses 
     NB  only --flag arg structure works """
     arg = ' '.join(sys.argv[1:])
@@ -212,7 +231,7 @@ def get_sys_arg():
     arg_split = arg_standard_dash.split('-')[1:]  
     
     # split by the first whitespace, avoid split lists/tuples
-    arg_split_by_first_ws = flatten_lst_of_lst([x.split(' ', maxsplit=1) for x in arg_split])  
+    arg_split_by_first_ws = flat_list([x.split(' ', maxsplit=1) for x in arg_split])  
     
     # remove all the whitespace left and right, all that should be left is whitespace in lists and tuples
     arg = [x.rstrip(' ').lstrip(' ').replace(' ', ',') for x in arg_split_by_first_ws]  
@@ -229,6 +248,20 @@ def get_sys_arg():
                 arg[k] = str(v)  # strings don't work in literal eval mk YYYY
     return arg
 
+""" SLURM ARGS
+JOB_ARRAY_MASTER_ID	%A	job array's master job allocation number
+JOB_ARRAY_ID	%a	job array id (index) number
+JOB_ID_STEP_ID	%J	jobid.stepid of the running job. (e.g. "128.0")
+JOB_ID	%j	jobid of the running job
+HOSTNAME	%N	short hostname. this will create a separate io file per node
+NODE_IDENTIFIER	%n	node identifier relative to current job (e.g. "0" is the first node of the running job) this will create a separate io file per node
+STEP_ID	%s	stepid of the running job
+TASK_IDENTIFIER	%t	task identifier (rank) relative to current job. this will create a separate io file per task
+USER_NAME	%u	user name
+JOB_NAME	%x	job name
+PERCENTAGE	%%	the character "%"
+DO_NOT_PROCESS	\\	do not process any of the replacement symbols
+"""
 
 def test():
     import os

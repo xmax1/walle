@@ -4,12 +4,26 @@ from typing import Any
 from dataclasses import dataclass
 import numpy as np
 import pandas as pd
+from pathlib import Path
 from prettytable import PrettyTable
 
 from matplotlib import pyplot as plt
-from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
+from matplotlib.ticker import MultipleLocator, AutoMinorLocator
 
-from .bureaucrat import array_to_lists, df_to_dict
+from bureaucrat import array_to_lists
+from wutils import wtype
+from cfg.cfg import Cfg
+
+@wtype
+def create_summary(p: Path, keys: list = ['exp_name'], tab='\t'*4):
+    exp_all = [exp.parent for exp in p.rglob('*py.out')]
+    with open(p/'summary.csv', 'w') as f:
+        for exp in exp_all:
+            c = Cfg(cfg_path)
+            line = ''.join([k + tab + str(c.dict[k]) for k in keys]) + '\n'
+            f.write(line)
+            print(line)
+    return 
 
 walle_cmaps = {
     'nice': ['#0051a2', '#97964a', '#ffd44f', '#f4777f', '#93003a']
@@ -241,7 +255,8 @@ def gen_latex_table_rows(
 
 
 ### PANDAS ###
-
+def df_to_dict(df: pd.DataFrame, type_filter: list = []) -> dict:
+    return {c:np.array(df[c]) for c in df.columns if df[c].dtypes not in type_filter}
 
 
 ''' LINE PROPERTIES 
