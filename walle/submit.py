@@ -11,9 +11,9 @@ import paramiko
 from simple_slurm import Slurm
 from pathlib import Path
 
-from bureaucrat import mkdir
-from idiomatic import zip_in_n_chunks, flat_list 
-from wutils import wtype
+from .bureaucrat import mkdir
+from .idiomatic import zip_in_n_chunks, flat_list 
+from .wutils import wtype
 
 ### GPUS ###
 def count_gpu() -> int:
@@ -80,9 +80,9 @@ def open_ssh(
 
 ### LOCAL CMD ###
 def run_cmd(cmd: str, cwd: str | Path, input_req: str = None) -> str:
-    stdout, stderr = subprocess.run(cmd.split(' '), cwd=cwd, input=input_req, capture_output=True)   # check = True error raise on fail
-    print('STDERR: \n', stderr)
-    return stdout
+    process = subprocess.run([c.strip() for c in cmd.split(' ')], cwd=cwd, input=input_req, capture_output=True)   # check = True error raise on fail
+    print('STDERR: \n', process.stderr)
+    return process.stdout
 
 
 ### PULLING FILES ###
@@ -148,8 +148,8 @@ def git_commit(
     return git_commit_id(cwd=project_dir)
 
 def git_commit_id(cwd: str | Path) -> str:
-    stdout = run_cmd('git log', cwd=cwd).decode('utf-8')  
-    commit_id = stdout.replace('\n', ' ').split(' ')[1] 
+    stdout = run_cmd('git log -1', cwd=cwd).decode('utf-8')  
+    commit_id = stdout.replace('\n', ' ').split(' ')[1]
     return commit_id
 
 def git_pull(project_dir: str | Path, remote: str = 'origin', branch: str = 'main') -> str:  
@@ -223,7 +223,9 @@ def get_sys_arg() -> dict:
     """ collects arguments from sys and parses 
     NB  only --flag arg structure works """
     arg = ' '.join(sys.argv[1:])
-    
+    if len(arg) == 0:
+        return {}
+
     # allow user to input args like -arg and --arg
     arg_standard_dash = arg.replace('--', '-')  
     
@@ -236,17 +238,16 @@ def get_sys_arg() -> dict:
     # remove all the whitespace left and right, all that should be left is whitespace in lists and tuples
     arg = [x.rstrip(' ').lstrip(' ').replace(' ', ',') for x in arg_split_by_first_ws]  
 
-    # TYPE
+    out_arg = {}
     for k, v in {k:v for k,v in zip_in_n_chunks(arg, 2)}.items():
         if v in booleans:  # ADDING REDUNDANCY: For if the boolean argument is mispelt
-            arg[k] = ('t' in v) or ('T' in v)
+            out_arg[k] = ('t' in v) or ('T' in v)
         else:
             try:
-                arg[k] = literal_eval(v)
-            except Exception as e:
-                # print(e)
-                arg[k] = str(v)  # strings don't work in literal eval mk YYYY
-    return arg
+                out_arg[k] = literal_eval(v)
+            except:
+                out_arg[k] = v  # strings don't work in literal eval mk YYYY
+    return out_arg
 
 """ SLURM ARGS
 JOB_ARRAY_MASTER_ID	%A	job array's master job allocation number

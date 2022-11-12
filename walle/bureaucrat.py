@@ -11,7 +11,7 @@ import json
 import pickle as pk
 import re
 
-from wutils import wtype
+from .wutils import wtype
 
 ascii_uppercase = string.ascii_uppercase
 ascii_lowercase = string.ascii_lowercase
@@ -121,7 +121,8 @@ def to_standard_type(x: Any):
         print(f'to_standard_type does not recognise {type(x)}')
 
 ### NAMING ###
-def gen_alphanum(n: int = 7):
+def gen_alphanum(n: int = 7, test=False):
+    random.seed(test if test else None)
     numbers = ''.join([str(i) for i in range(10)])
     characters = ascii_uppercase + ascii_lowercase + numbers
     name = ''.join([random.choice(characters) for _ in range(n)])

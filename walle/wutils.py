@@ -1,6 +1,7 @@
 
 from difflib import get_close_matches
 from typing import Any, Callable, Iterable
+import sys
 import numpy as np
 from inspect import signature, Parameter
 from time import time
@@ -143,7 +144,8 @@ def wtype(fn: Callable):
     ty = list(fn.__annotations__.values())
     def fn_with_typed_inputs(*arg, **kwarg):
         arg = [t(a) for t, a in zip(ty, arg)] 
-        kwarg = [ty_d[k](a) for k, a in kwarg.items()] 
+        print(arg)
+        kwarg = {k:ty_d[k](a) for k,a in kwarg.items()}
         return fn(*arg, **kwarg)
     return fn_with_typed_inputs
 
@@ -178,7 +180,53 @@ def wlog():
     return
 
 def wtime():
-    return        
+    return    
+
+def wtest():
+    """ prints all the info of a variable in the local scope at exit
+    https://stackoverflow.com/questions/3850261/doing-something-before-program-exit """
+
+    def new_fn():
+        __start_ = set(globals())
+
+
+
+        __end_   = set(globals()) - __start_
+    return  
+
+class persistent_locals(object):
+    def __init__(self, func):
+        # https://code.activestate.com/recipes/577283-decorator-to-expose-local-variables-of-a-function-/
+        self._locals = {}
+        self.func = func
+        self._run = 0
+
+    def __call__(self, *args, **kwargs):
+        if self._run:
+            def tracer(frame, event, arg):
+                if event=='return':
+                    self._locals = frame.f_locals.copy()
+
+            sys.setprofile(tracer) # tracer is activated on next call, return or exception
+            try: # trace the function call
+                res = self.func(*args, **kwargs)
+            finally: # disable tracer and replace with old one
+                sys.setprofile(None)
+        else:
+            res = self.func(*args, **kwargs)
+        return res 
+
+    def clear_locals(self):
+        self._locals = {}
+
+    @property
+    def locals(self):
+        return self._locals
+
+
+def statsCollect(var, var_all=[]):
+    var_all += [var]   
+
 
 @wfail
 def track_time(
