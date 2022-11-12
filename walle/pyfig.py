@@ -34,33 +34,15 @@ class ws:
 class pattern:
     general_cr  = '\r\n|\r|\n'  # carriage return
 
-
-class Pyfig:
-    def __init__(self, d: dict) -> None:
-        self.dict |= d
-
-    @property
-    def dict(self):
-        return self.__dict__
-
-    # def __getattribute__(self, k: str):
-        
-    def __add__(self, d: dict):
-        for k,v in d.items():
-            setattr(self, k, v)
-        return self
-
-    def __add__(self, d: dict):
-        for k,v in d.items():
-            setattr(self, k, v)
-        return self
+def load_pyfig(cfg_path: Path):
+    import runpy
+    c = runpy.run_path(cfg_path)
+    return c.get('Pyfig', c.get(cfg_path.with_suffix('').name))
 
 def pyfig(*, cfg_path=Path('./cfg/cfg.py'), create=True, iterate=True, n_clean=20, test=True, **kwarg):        
     
-    import runpy
-    c = runpy.run_path(cfg_path)
-    c = c.get('Pyfig', c.get(cfg_path.with_suffix('').name))
-    c |= {'create': create, 'iterate': iterate, **kwarg}
+    c = load_pyfig(cfg_path)
+    c |= {'create': create, 'iterate': iterate, **{k:v for k,v in kwarg.items() if k not in c.sys_arg}}
 
     exp_all = [p for p in c.project_exp_dir.iterdir() if p.is_dir()]
         

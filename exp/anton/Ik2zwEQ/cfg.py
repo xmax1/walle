@@ -1,10 +1,7 @@
 from pathlib import Path
 from walle.submit import count_gpu, git_commit_id, get_sys_arg
-from walle.pyfig import wContext
 __global0 = set(globals())
 
-with wContext(protect=True) as sweep:
-    pass
 
 project_dir:        str    =  Path(r'C:\Users\max\OneDrive\sisy\walle').absolute()
 server_project_dir: Path    = ''

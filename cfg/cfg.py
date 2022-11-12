@@ -1,24 +1,35 @@
+import sys
 from pathlib import Path
 from walle.submit import count_gpu, get_sys_arg, git_commit_id
 
 class SubClass:
-    def __init__(self, name):
-        self.__name__ = name
+    """
+    %reset -f if testing in jupyter, because globals can only tell if a variable has CHANGED"""
+    def __init__(self):
+        pass
     def __enter__(self):
-        self._var = set(globals())
+        self.__var = dict(globals())
+        return self
     def __exit__(self, *args):
-        keys = [k for k in list(set(globals()) - self._var)]
-        for k in keys:
-            setattr(self, k, vars()[k])
-
+        _g = {k:v for k,v in dict(globals()).items() if not ((k in self.__var) or ('__' in k))}
+        for k, v in _g.items():
+            if not isinstance(v, SubClass):
+                self.__dict__[k] = v
+    
 class Pyfig:
 
     sys_arg: dict = get_sys_arg()
 
     exp_name:           str     = exp_name
+    exp_path:           Path    = property(lambda self: self.project_exp_dir / self.exp_name)
+    run_path:           Path    = property(lambda self: self.project_dir / 'run.py')
+
     seed:               int     = 808017424     # grr
     n_device:           int     = property(count_gpu)
     commit_id:          str     = git_commit_id()
+
+    with SubClass() as sweep:
+        var_1 = ... # wandb structure
 
     dtype:              str     = 'f32'
     n_step:             int     = 100
@@ -34,11 +45,11 @@ class Pyfig:
     
     job_type:           str     = 'training'
 
-    with SubClass('wandb'):
+    with SubClass() as wandb:
         entity:             str     = ''            # wandb entity
         job_type:           str     = 'training'
 
-    with SubClass('slurm'):
+    with SubClass() as slurm:
         mail_type:      str     = 'FAIL'
         partition:      str     ='sm3090'
         nodes:          str     = 1                # n_node
@@ -46,7 +57,7 @@ class Pyfig:
         cpus_per_task:  str     = 1     
         time:           str     = '0-12:00:00'     # D-HH:MM:SS
         gres:           str     = 'gpu:RTX3090:1'
-        job_name:       str     = property(lambda _: Pyfig.exp_name)
+        job_name:       str     = property(lambda _: c.exp_name)  # this does not call the instance it is in
         slurm_body: str = property( lambda _: \
             f'module purge \n \
             source ~/.bashrc \n \
@@ -62,14 +73,20 @@ class Pyfig:
             nvidia-smi \n '
         ) 
 
-    project_dir:        str    =  Path().absolute().parent
+    project_dir:        Path    = Path().absolute().parent
+    project_exp_dir:    Path    = property(lambda self: self.project_dir / 'exp')
+    project_cfg_dir:    Path    = property(lambda self: self.project_dir / 'cfg')
     server_project_dir: Path    = property(lambda self: self.project_dir)
+
     data_path:          Path    = Path('~/data/a_data_file')
     server:             str     = 'server_id'   # SERVER
     user:               str     = 'user_id'     # SERVER
     env:                str     = 'dex'         # CONDA ENV
     git_remote:         str     = 'origin'
     git_main:           str     = 'main'
+
+    def __init__(self) -> None:
+        self.__dict__ |= {self.sys_arg}
 
     @property
     def dict(self,):
@@ -81,7 +98,23 @@ class Pyfig:
         return d
 
     @staticmethod
-    def _filter_attr(cls):
-        return {k:v for k,v in type(cls).__dict__.items() if (not k[0] == '_')}
+    def _filter_attr(cls: object):
+        return {k:v for k,v in cls.__dict__.items() if (not k[0] == '_')}
 
+    @staticmethod
+    def parse_args(self, _i=0, _d={}):
+        arg = sys.argv[1:]
+        while _i<5000:
+            k = arg[_i]
+            v = arg[(_i:=_i+1)]
+            
+            if '-' == k[0] and '-' == v[0]:  # --store_true action
+                _d[k] = True
+            else:
+                _d[v] = type(self.dict[k])(v)
+                _i += 1
+
+            if _i == len(arg):
+                break
+            
 c = Pyfig()
