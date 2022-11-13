@@ -1,27 +1,27 @@
 import wandb
-from submit import Cfg
+from pyfig import pyfig
+from wutils import SubClass
 
-# pass wandb a sweep dict 
-# how does wandb execute the file? Cmd line args? 
-    # wandb.init command option defines how args passed
-# wandb.log the metric needing to be optimized
-# wandb.init option description can be the REQUIRED hypothesis
+class sweep:
+    method: str = 'random'
+    name: str = 'sweep'
+    
+    with SubClass() as metric:
+        goal: str = 'minimize'
+        name: str = 'validation_loss'
 
-### SWEEP AND CONFIG
-# change config to Cfg class (remove from wutils)
-# load module and create class for any type of loading
-# keep wClass cool things
-# tosweep exports ONLY sweep variables (ones containing the sweep keys from wandb) to parameter and sets up config as required
-# 
-
-
-c = Cfg() # This is the base config
+    with SubClass() as parameters:
+        batch_size: dict = {'values': [16, 32, 64]}
+        epoch: dict = {'values': [5, 10, 15]}
+        lr: dict = {'max': 0.1, 'min': 0.0001}
+     
+c = pyfig(cfg_path='', create=True, iterate=False, sweep=sweep) # This is the base config
 
 sweep_id = wandb.sweep(
     env     = f'conda activate {c.env};',
-    sweep   = c.tosweep(), 
-    program = c.run_path,
-    project ='my-first-sweep',
+    sweep   = c.sweep, 
+    program = c.wandb.run_path,
+    project = c.wandb.project,
 )
 
 # run = wandb.init(  # not needed for sweep

@@ -1,24 +1,32 @@
 # Journey
-- Decide on sweep or single run
+- All these exps assume loading cfg.cfg c
+- Provide --cfg_path path for other config
 
-## Sweep
-- provide user with wandb configuration tools
-- write a tosweep tool that converts everything to the structure needed for wandb
-- create cfg tool overwrites variables that change
-- at the end of a cfg init, write the sweep cfg to the head
+## Run (local)
+python run.py
 
-- wandb.sweep runs remote execution with these parameters
-    - where does the wandb sweep file go? 
-    - if wandb runs slurm then run thinks individual sweep so need method for turning wandb off
+## Run sweep (local)
+- Change sweep configuration, either in the pyfig or in the script
+python run.py 
 
-## Sweep 
-- How to identify sweep variables - from wandb. 
-    - Define the sweep in the config.py with Sweep type
-    - Write function to extract sweep
-    - wandb turns off if is a sweep? 
+## slurm
+- server_cfg=FAB <cmd> to use project/_settings.py server config
+- hierarchy of sweep config: defined in run.py > defined in pyfig
 
+## Run sweep (slurm)
+- fab submit "sweep.py --data_path <data_path>"
+    - calls sweep.py
+    - which sets up wandb instance
+    - and submits slurm via Pyfig, with --sweep_id <id> --run sweep_agent --exp_id <random> options (sweep_agent True, exp_id True)
 
-## 
+## Run (slurm)
+- fab submit "run.py --data_path <data_path>"  # TODO HOW TO KNOW WHEN IT SUBMITS TO GPU?!
+    - calls run.py
+    - which sets up wandb instance
+    - and submits slurm via Pyfig, with --run sweep_agent --exp_id <random> options (sweep_agent True, exp_id True)
+
+python run.py <args>
+
 
 
 

@@ -8,10 +8,7 @@ import pandas as pd
 import string
 import random
 import json
-import pickle as pk
 import re
-
-from .wutils import wtype
 
 ascii_uppercase = string.ascii_uppercase
 ascii_lowercase = string.ascii_lowercase
@@ -44,8 +41,8 @@ today_n = date_to_num()
 
 
 ### HANDLING DIRECTORIES & PATHS ###
-@wtype
 def mkdir(path: Path) -> Path:
+    path = Path(path)
     if path.suffix != '':
         path = path.parent
     if path.exists():
@@ -141,7 +138,6 @@ def iterate_folder(folder: Path):
     print(f'created exp_dir {folder}')
     return folder
 
-@wtype
 def remove_path(path: Path):
     if path.exists():
         if path.is_file():

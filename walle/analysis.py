@@ -11,19 +11,35 @@ from matplotlib import pyplot as plt
 from matplotlib.ticker import MultipleLocator, AutoMinorLocator
 
 from bureaucrat import array_to_lists
-from wutils import wtype
-from cfg.cfg import Cfg
+from pyfig import load_pyfig
 
-@wtype
-def create_summary(p: Path, keys: list = ['exp_name'], tab='\t'*4):
+class wGather:
+    def __init__(self) -> None:
+        pass
+
+    def d(self) -> dict:
+        return self.__dict__
+    
+    def __setattr__(self, k: str, v: Any):
+        v = np.array(v).tolist()
+        if not k in self.d.keys():
+            self.d[k] = [v]
+        else:
+            self.d[k] += [v]
+
+def format_val_to_csv(v: Any):
+    return str(v)
+
+def create_summary(p: Path, keys: list = ['exp_id'], tab='\t'*4):
     exp_all = [exp.parent for exp in p.rglob('*py.out')]
     with open(p/'summary.csv', 'w') as f:
         for exp in exp_all:
-            c = Cfg(cfg_path)
-            line = ''.join([k + tab + str(c.dict[k]) for k in keys]) + '\n'
-            f.write(line)
-            print(line)
-    return 
+            c = load_pyfig(exp)
+            line = [(format_val_to_csv(c.dict[k]) + tab) for k in keys]
+            f.writelines(line)  
+            # for k in keys:
+            #     setattr(stat, k, c.dict[k])
+
 
 walle_cmaps = {
     'nice': ['#0051a2', '#97964a', '#ffd44f', '#f4777f', '#93003a']

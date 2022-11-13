@@ -1,21 +1,27 @@
 import sys
 import subprocess
-from importlib import import_module
 from contextlib import redirect_stdout
 from ast import literal_eval
 import io
-import re
 from stat import S_ISDIR, S_ISREG
+import wandb
 
 import paramiko
 from simple_slurm import Slurm
 from pathlib import Path
 
-from .bureaucrat import mkdir
-from .idiomatic import zip_in_n_chunks, flat_list 
-from .wutils import wtype
+from .bureaucrat import mkdir, gen_alphanum
+from .idiomatic import zip_in_n_chunks, flat_list
+from cfg.cfg import Pyfig
 
 ### GPUS ###
+def get_env_var(k: str):
+    return run_cmd(f'echo ${k}') 
+
+def set_env_var(k: str):
+    run_cmd(f'export ${k}')
+    return 
+
 def count_gpu() -> int:
     # output = run_cmd('echo $CUDA_VISIBLE_DEVICES', cwd='.')
     import os
@@ -36,30 +42,6 @@ def get_free_gpu_id() -> int | None:
             return idx
     return None
 
-### SUBMISSION ###
-def submit(
-    cfg_path    : str | Path = None,
-    run_path    : str | Path = 'run.py',
-    cmd         : str = '', 
-    msg         : str = '',
-):  
-    """ commits local changes, pulls changes to cluster, runs run_name
-    NB  server cmd executed from server_project_dir
-    """
-    c = import_module(cfg_path)
-
-    stdout = run_cmd('git add .', cwd=c.project_dir)
-    stdout = run_cmd(f'git commit -m "{msg}"', cwd=c.project_dir)
-    stdout = run_cmd(f'git push {c.git_remote} {c.git_branch}', cwd=c.project_dir)
-    
-    with open_ssh(c.USER, c.SERVER, sftp=False) as client:
-        stdin, stdout, stderr = client.exec_command(f'cd {c.server_project_dir}')
-        stdin, stdout, stderr = client.exec_command(f'git pull {c.git_remote} {c.git_branch}')
-        stdin, stdout, stderr = client.exec_command(f'python {run_path} {cmd}')
-
-    return None
-
-
 ### SERVER CMD ###
 def open_ssh(
     user    : str  = None,
@@ -76,6 +58,10 @@ def open_ssh(
         return client.open_sftp()
     else:
         return client
+
+def run_cluster_cmd():
+    client = open_ssh(user, server, sftp=False)
+    
 
 
 ### LOCAL CMD ###
@@ -96,7 +82,6 @@ def listdir_r(sftp, remote_dir):
             if not ((remote_path[-1] == '.') or (remote_path[-2:] == '..') or (remote_path == '')):  # fil
                 print(remote_path)
 
-@wtype
 def fetch(
     user        : str   = None,
     server      : str   = None,
@@ -174,26 +159,61 @@ def git_connect_repo(
     else:
         print('repo initialised BUT !! not pushed. Add remote next time.')
 
-
-def make_exp(exp_name: Path, exp_path: Path = None):
-    return 
-
-tmp = mkdir(Path('./tmp'))
+tmp = mkdir(Path('./tmp/out'))
 mv_cmd = f'mv {tmp}/o-$SLURM_JOB_ID.out {tmp}/e-$SLURM_JOB_ID.err $out_dir'
 
+### SUBMISSION ###
+def submit_sweep(
+    c           : Pyfig,
+    msg         : str = '',
+):  
+    """ commits local changes, pulls changes to cluster, runs run_name
+    NB  server cmd executed from server_project_dir
+    """
+    stdout = run_cmd('git add .', cwd=c.project_dir)
+    stdout = run_cmd(f'git commit -m "{msg}"', cwd=c.project_dir)
+    stdout = run_cmd(f'git push {c.git_remote} {c.git_branch}', cwd=c.project_dir)
+
+    with open_ssh(c.user, c.server, sftp=False) as client:
+        stdin, stdout, stderr = client.exec_command(f'cd {c.server_project_dir}')
+        stdin, stdout, stderr = client.exec_command(f'git pull {c.git_remote} {c.git_branch}')
+        stdin, stdout, stderr = client.exec_command(f'python {c.run_path} --run sweep_lord')
+
+    return None
+
+def gen_cmd(c: Pyfig = None):
+    if c:
+        cmd = f'python -u {c.run_path}'   
+        for k, v in c.dict.items():
+            cmd += f' --{k} {str(v)}'
+    else:
+        pass # TODO the case where they don't use a config
+    return cmd
+
+def submit_sweep_agent_all(c: Pyfig):
+    c.sweep_id = wandb.sweep(
+            env     = f'conda activate {c.env};',
+            sweep   = c.sweep, 
+            program = c.run_path,
+            project = c.project,
+            name    = c.exp_name,
+            run_cap = c.n_sweep
+        )
+    for _s in range(c.n_sweep):
+        c.submit_slurm(agent=True, exp_id=True)
+    exit('Run sweep')
+
 def run_single_slurm(
-    run_exe     : Path,
     exp_path    : Path,
+    slurm_cfg   : str,
     sbatch_cfg  : str,
-    slurm_cfg   : dict,
-    sweep       : bool = False,
-    **exp_kwarg
+    cmd         : str
 ) -> None:
     """ 
     EDU -u in python call unbuffers stdout 
     NB  creates out_dir and moves err and out files after run 
     EDU slurm config details https://slurm.schedmd.com/pdfs/summary.pdf """   
-    
+
     # TODO slurm = Slurm(array=range(3, 12), job_name='name')
     # TODO slurm.set_dependency(dict(after=65541, afterok=34987))
     slurm = Slurm(
@@ -202,20 +222,15 @@ def run_single_slurm(
         **slurm_cfg,
     )
 
-    cmd = f'python -u {run_exe}'   
-    for k, v in exp_kwarg.items():
-        cmd += f' --{k} {str(v)}'
-
     print('RUNNING: \n ', cmd)
     slurm.sbatch(
         sbatch_cfg + 
-        f'out_dir={(mkdir(exp_path))} \n \
-        {cmd} | tee {(exp_path/"py.out")} \n \
+        f'out_dir={(mkdir(exp_path)/"out")} \n \
+        {cmd} | tee $out_dir/py.out \n \
         {mv_cmd} \n \
         date "+%B %V %T.%3N" '
     )
     return None
-
 
 booleans = ['True', 'true', 't', 'False', 'false', 'f']
 
