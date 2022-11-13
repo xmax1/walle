@@ -59,62 +59,11 @@ def open_ssh(
     else:
         return client
 
-def run_cluster_cmd():
-    client = open_ssh(user, server, sftp=False)
-    
-
-
 ### LOCAL CMD ###
 def run_cmd(cmd: str, cwd: str | Path, input_req: str = None) -> str:
     process = subprocess.run([c.strip() for c in cmd.split(' ')], cwd=cwd, input=input_req, capture_output=True)   # check = True error raise on fail
     print('STDERR: \n', process.stderr)
     return process.stdout
-
-
-### PULLING FILES ###
-def listdir_r(sftp, remote_dir):
-    for entry in sftp.listdir_attr(remote_dir):  # listdir entries on path, does not include '.' and '..'
-        remote_path = remote_dir + "/" + entry.filename
-        mode = entry.st_mode    # st_mode: Inode protection mode (we don't need to know) - metadata about the path
-        if S_ISDIR(mode):   # S_ISDIR: is a directory
-            listdir_r(sftp, remote_path)
-        elif S_ISREG(mode): # S_ISREG: is regular file
-            if not ((remote_path[-1] == '.') or (remote_path[-2:] == '..') or (remote_path == '')):  # fil
-                print(remote_path)
-
-def fetch(
-    user        : str   = None,
-    server      : str   = None,
-    server_dir  : Path  = None,
-    target_dir  : Path  = None,   # the directory it is going in
-    avoid       : list  = None,
-    match       : list  = None,
-    print_paths : bool  = False,
-    pull        : bool  = True
-):
-    with open_ssh(user, server, sftp=True) as sftp:
-        f = io.StringIO()
-        with redirect_stdout(f):
-            listdir_r(sftp, server_dir)
-        remote_paths = f.getvalue().split('\n')
-        remote_paths = [Path(f.strip('\n')) for f in remote_paths if f not in ['', '.', '..', '\n']]
-
-        if match is not None:
-            remote_paths = [f for f in remote_paths if any([f.match(f'*{x}*') for x in match])]
-
-        if avoid is not None:
-            remote_paths = [f for f in remote_paths if not any([x in str(f) for x in avoid])]
-        
-        print(f'{len(remote_paths)} files found')
-        for f in remote_paths:
-            local_path = target_dir / Path(f).relative_to(server_dir)
-            if pull:
-                if print_paths:
-                    print(f'Making local path {mkdir(local_path)}')
-                    print(f'Pulling from server {str(f)}')
-                sftp.get(f.as_posix(), str(local_path))
-    return None
-
 
 ### GIT ###
 def git_commit(

@@ -14,6 +14,9 @@ run = wandb.init(  # not needed for sweep
     cfg=c.dict,  # over-ridden in sweep case
 )
 
+if run.config:
+    c.update(run.config)
+
 def log_metric(
     *, 
     model  = None, 

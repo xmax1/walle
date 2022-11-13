@@ -1,6 +1,5 @@
 import wandb
 from walle.pyfig import pyfig
-import numpy as np
 
 class sweep:
     # run_cmd(f'export WANDB_DIR={c.exp_path}', cwd='.')  # set wandb before the path changes
@@ -18,7 +17,7 @@ class sweep:
 
 c = pyfig(cfg_path='', create=True, iterate=False, sweep=None) # This is the base config
 
-c.sweep_id = wandb.sweep(
+sweep_id = wandb.sweep(
     env     = f'conda activate {c.env};',
     sweep   = c.sweep, 
     program = c.run_path,
@@ -26,7 +25,8 @@ c.sweep_id = wandb.sweep(
     name    = c.exp_name,
     run_cap = c.n_sweep
 )
-[c.submit_slurm(agent=True, exp_id=True, sweep_id=c.sweep_id) for _ in range(c.n_sweep)]
+
+[c.submit_slurm(agent=True, exp_id=True, sweep_id=sweep_id) for _ in range(c.n_sweep)]
 
 """
 TODO

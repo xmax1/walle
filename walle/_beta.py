@@ -6,8 +6,103 @@ from inspect import signature, Parameter
 from time import time
 from pathlib import Path
 
+from typing import Any
+import numpy as np
 
 
+### PULLING FILES ###
+def listdir_r(sftp, remote_dir):
+    for entry in sftp.listdir_attr(remote_dir):  # listdir entries on path, does not include '.' and '..'
+        remote_path = remote_dir + "/" + entry.filename
+        mode = entry.st_mode    # st_mode: Inode protection mode (we don't need to know) - metadata about the path
+        if S_ISDIR(mode):   # S_ISDIR: is a directory
+            listdir_r(sftp, remote_path)
+        elif S_ISREG(mode): # S_ISREG: is regular file
+            if not ((remote_path[-1] == '.') or (remote_path[-2:] == '..') or (remote_path == '')):  # fil
+                print(remote_path)
+
+def fetch(
+    user        : str   = None,
+    server      : str   = None,
+    server_dir  : Path  = None,
+    target_dir  : Path  = None,   # the directory it is going in
+    avoid       : list  = None,
+    match       : list  = None,
+    print_paths : bool  = False,
+    pull        : bool  = True
+):
+    with open_ssh(user, server, sftp=True) as sftp:
+        f = io.StringIO()
+        with redirect_stdout(f):
+            listdir_r(sftp, server_dir)
+        remote_paths = f.getvalue().split('\n')
+        remote_paths = [Path(f.strip('\n')) for f in remote_paths if f not in ['', '.', '..', '\n']]
+
+        if match is not None:
+            remote_paths = [f for f in remote_paths if any([f.match(f'*{x}*') for x in match])]
+
+        if avoid is not None:
+            remote_paths = [f for f in remote_paths if not any([x in str(f) for x in avoid])]
+        
+        print(f'{len(remote_paths)} files found')
+        for f in remote_paths:
+            local_path = target_dir / Path(f).relative_to(server_dir)
+            if pull:
+                if print_paths:
+                    print(f'Making local path {mkdir(local_path)}')
+                    print(f'Pulling from server {str(f)}')
+                sftp.get(f.as_posix(), str(local_path))
+    return None
+    
+### UTILITY CLASSES ###
+def is_array(x: Any):
+    return ('shape' in dir(x))
+    
+class wStats:
+    """ collects things """
+    
+    data = {}
+
+    def __init__(self, name):
+        self.name = name
+    def __setattr__(self, v: Any) -> None:
+        v = np.array(v).tolist()
+        self.data += [v]
+
+class dumpData:
+    def __init__(self, metrics):
+        for m in metrics:
+            setattr(self, m, wStats())
+
+
+class SubClass:
+    """
+    %reset -f if testing in jupyter, because globals can only tell if a variable has CHANGED"""
+    def __init__(self):
+        pass
+    def __enter__(self):
+        self.__var = dict(globals())
+        return self
+    def __exit__(self, *args):
+        _g = {k:v for k,v in dict(globals()).items() if not ((k in self.__var) or ('__' in k))}
+        for k, v in _g.items():
+            if not isinstance(v, SubClass):
+                self.__dict__[k] = v
+
+                
+class SubClass:
+    """
+    %reset -f if testing in jupyter, because globals can only tell if a variable has CHANGED"""
+    def __init__(self):
+        pass
+    def __enter__(self):
+        self.__var = dict(globals())
+        return self
+    def __exit__(self, *args):
+        _g = {k:v for k,v in dict(globals()).items() if not ((k in self.__var) or ('__' in k))}
+        for k, v in _g.items():
+            if not isinstance(v, SubClass):
+                self.__dict__[k] = v
 
 def write_pyfig(c, changed: dict):
     

@@ -2,21 +2,6 @@ import re
 from pathlib import Path
 import runpy
 from .bureaucrat import iterate_folder, gen_alphanum, mkdir, date_to_num, today
-from .submit import run_cmd
-
-docs = "                                         \n \
-DOCS                                             \n \
-                                                 \n \
-ALLOWED STRUCTURES                               \n \
-- SINGLE LINE STRUCTURES (everything defined on a single line ie n_it: int = 1000)  \n \
-    - only variable name and value needed                                           \n \
-- MULTILINE STRUCTURES                                                              \n \
-    - functions (def \\n)                                                           \n \
-    - (BETA) any structure defined by = \\ (single backslash)                       \n \
-                                                                                    \n \
-DISALLOWED (MUST BE IN PROTECTED CONTEXT)                                           \n \
-- ANY MULTILINE STRUCTURE NOT DEFINED BY = \\ (single backslash)                    \n \
-"
 
 general_cr  = '\r\n|\r|\n'  # carriage return
 ws = ' +'
@@ -31,7 +16,10 @@ def pyfig(*, cfg_path=Path('./cfg/cfg.py'), create=True, iterate=True, n_clean=2
     
     c = load_pyfig(cfg_path)
     c |= {'create': create, 'iterate': iterate, **{k:v for k,v in kwarg.items() if k not in c.sys_arg}}
-        
+    
+    if sweep:
+        c |= sweep
+
     exp_all = [p for p in c.project_exp_dir.iterdir() if p.is_dir()]
         
     if len(exp_all) > n_clean:
@@ -41,7 +29,6 @@ def pyfig(*, cfg_path=Path('./cfg/cfg.py'), create=True, iterate=True, n_clean=2
     if iterate:
         c.exp_path = iterate_folder(c.project_exp_dir/c.exp_name)
     
-
     if c.run in ['sweep_agent', 'run']: # bool(empty dictionary) = False
         c.exp_path /= gen_alphanum(n=7, test=test)
 
