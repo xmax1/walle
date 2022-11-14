@@ -105,6 +105,10 @@ class SubClass:
                 self.__dict__[k] = v
 
 def write_pyfig(c, changed: dict):
+    general_cr  = '\r\n|\r|\n'  # carriage return
+    ws = ' +'
+    a_string = '^[\"\']\w+[\"\']'
+    var_pattern = lambda name: f'^{name}[ :]*[a-zA-Z0-9_]* *= *$'
     
     with open(c.source_path, 'r', encoding='utf-8') as f:
         l_source = f.readlines()

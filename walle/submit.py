@@ -10,9 +10,9 @@ import paramiko
 from simple_slurm import Slurm
 from pathlib import Path
 
-from .bureaucrat import mkdir, gen_alphanum
+from .bureaucrat import mkdir
 from .idiomatic import zip_in_n_chunks, flat_list
-from cfg.cfg import Pyfig
+from pyfig import Pyfig
 
 ### GPUS ###
 def get_env_var(k: str):
@@ -122,12 +122,10 @@ def submit_sweep(
     stdout = run_cmd('git add .', cwd=c.project_dir)
     stdout = run_cmd(f'git commit -m "{msg}"', cwd=c.project_dir)
     stdout = run_cmd(f'git push {c.git_remote} {c.git_branch}', cwd=c.project_dir)
-
     with open_ssh(c.user, c.server, sftp=False) as client:
         stdin, stdout, stderr = client.exec_command(f'cd {c.server_project_dir}')
         stdin, stdout, stderr = client.exec_command(f'git pull {c.git_remote} {c.git_branch}')
-        stdin, stdout, stderr = client.exec_command(f'python {c.run_path} --run sweep_lord')
-
+        stdin, stdout, stderr = client.exec_command(f'python {c.run_path}')
     return None
 
 def gen_cmd(c: Pyfig = None):

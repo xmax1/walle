@@ -2,20 +2,17 @@ import wandb
 from walle.pyfig import pyfig
 import numpy as np
 
-c = pyfig(cfg_path='', create=True, iterate=False, sweep=None) # This is the base config
+c = pyfig(cfg_path='./cfg.py', iterate=False) # This is the base config
 
-if c.run == 'sweep_agent':
+if c.sweep_id:
     wandb.agent(c.sweep_id, count=1)  # function=main
 
 run = wandb.init(  # not needed for sweep
-    entity=c.wandb.entity,
+    entity=c.entity,
     project=c.project,
     job_type=c.job_type,
     cfg=c.dict,  # over-ridden in sweep case
 )
-
-if run.config:
-    c.update(run.config)
 
 def log_metric(
     *, 

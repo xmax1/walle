@@ -7,20 +7,21 @@ from functools import reduce
 
 TMP = mkdir('./tmp/out')
 
-class Sweep:  # Inside just for readability
-    parameters = dict()
-    n_sweep = reduce(lambda i0,i1: i0*i1, [len(v) for v in parameters.values()])
-    
-    # method: str = 'random'
-    # name: str = 'sweep'
-    # with SubClass() as metric:
-    #     goal: str = 'minimize'
-    #     name: str = 'validation_loss'
-    # with SubClass() as parameters:
-    #     batch_size: dict = {'values': [16, 32, 64]}
-    #     epoch: dict = {'values': [5, 10, 15]}
-    #     lr: dict = {'max': 0.1, 'min': 0.0001}
-    
+sweep = dict(
+    method = 'random',
+    name = 'sweep',
+    metrics = dict(
+        goal = 'minimize',
+        name = 'validation_loss',
+    ),
+    parameters = {}
+    # parameters = dict(
+    #     batch_size = {'values': [16, 32, 64]},
+    #     epoch = {'values': [5, 10, 15]},
+    #     lr = {'max': 0.1, 'min': 0.0001},
+    # ),
+)
+
 class Pyfig:
 
     sys_arg: dict = sys.argv[1:]
@@ -34,9 +35,10 @@ class Pyfig:
     exp_name:           str     = exp_name
     run_path:           Path    = property(lambda _: _.project_dir / 'run.py')
     _exp_id:            str     = ''
-    _sweep_id:          str     = ''
-
-    sweep = Sweep()
+    
+    sweep_id:          str      = ''
+    sweep = sweep
+    n_sweep: int = reduce(lambda i0,i1: i0*i1, [len(v) for v in sweep['parameters'].values()]) if sweep['parameters'] else 0
 
     dtype:              str     = 'f32'
     n_step:             int     = 100
@@ -74,7 +76,7 @@ class Pyfig:
         cpus_per_task   = 1,     
         time            = '0-12:00:00',     # D-HH:MM:SS
         gres            = 'gpu:RTX3090:1',
-        job_name        = property(lambda _: c.exp_name),  # this does not call the instance it is in
+        job_name        = property(lambda _: _.exp_name),  # this does not call the instance it is in
     )
 
     sbatch = property(lambda _: f"""
@@ -98,7 +100,7 @@ class Pyfig:
     def dict(self,):
         d = self._dict_from_cls(self)
         for k,v in d.items():
-            if isinstance(v, Slurm | Sweep):
+            if isinstance(v, Slurm):
                 d[k] = self._dict_from_cls(v)
         return d
         
@@ -125,12 +127,12 @@ class Pyfig:
             cls.__dict__[k] = type(cls.__dict__[k])(v)
             return True
         for cls_v in cls.__dict__.values():
-            if isinstance(cls_v, Slurm | Sweep):
+            if isinstance(cls_v, Slurm):
                 self._update(cls_v, k, v)
         return False
 
-    def run_slurm(self):
-        sweep_id = bool(self._sweep_id) * f'--sweep_id {self._sweep_id}'
+    def run_slurm(self,):
+        sweep_id = bool(self.sweep_id) * f'--sweep_id {self.sweep_id}'
         cmd = f'python -u {self.run_path} --exp_id {self._exp_id}' + sweep_id
         self.slurm.sbatch(
             self.sbatch + 
@@ -138,5 +140,3 @@ class Pyfig:
             {cmd} | tee $out_dir/py.out \n \
             date "+%B %V %T.%3N" '
         )
-        
-c = Pyfig()

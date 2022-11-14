@@ -39,7 +39,6 @@ def date_to_num():
 
 today_n = date_to_num()
 
-
 ### HANDLING DIRECTORIES & PATHS ###
 def mkdir(path: Path) -> Path:
     path = Path(path)
@@ -128,10 +127,16 @@ def gen_alphanum(n: int = 7, test=False):
 def add_to_Path(path: Path, string: str | Path):
         return Path(str(path) + str(string))
 
-def iterate_folder(folder: Path):
-    if re.search(folder.name, '-[0-9]*'):
+def iterate_folder(folder: Path, on=True):
+    if not on:
+        return folder
+    if folder.exists():
+        if '-':
+            ...
+    if re.search(folder.name, {folder.name})
+    if re.search(folder.name, f'-[0-9]*'):
         print(f'exp {folder} exists')
-        exist = [int(x.name.split('-')[-1]) for x in folder.iterdir() if '-' in x.name]
+        exist = [int(x.name.split('-')[-1]) for x in folder.parent.iterdir() if '-' in x.name]
         for i in range(100):
             if not i in exist:
                 folder = add_to_Path(folder, f'-{i}')

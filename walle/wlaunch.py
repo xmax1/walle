@@ -1,5 +1,5 @@
 import sys
-import os
+from cfg.cfg import Pyfig
 from pathlib import Path
 from bureaucrat import mkdir
 from shutil import copy, copytree
@@ -24,8 +24,6 @@ code_dir = mkdir(project_dir / project_name)
 template_dir = Path('./template')
 
 def copy_fd(source: Path, target: Path, names: str|list):
-    """
-    """
     mkdir(target)
 
     if isinstance(names, str):
