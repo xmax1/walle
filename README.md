@@ -7,7 +7,7 @@ python run.py
 
 ## Run sweep (local)
 - Change sweep configuration, either in the pyfig or in the script
-python run.py 
+python sweep.py 
 
 ## slurm
 - server_cfg=FAB <cmd> to use project/_settings.py server config
