@@ -1,6 +1,6 @@
 
 # user details
-*/user.py
+
 
 # junk
 *.idea
@@ -11,7 +11,7 @@
 *tmp*
 *.vscode
 papers/
-./user.py
+./_pyfig.py
 
 # filetypes
 *.ppt
@@ -26,7 +26,6 @@ papers/
 data/*/
 logs/
 wandb/
-
 
 # machine utilities
 *powershell*

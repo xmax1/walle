@@ -2,29 +2,42 @@ from typing import Any, Iterable, TextIO
 from pathlib import Path
 from datetime import datetime
 from shutil import rmtree
-
+import runpy
 import numpy as np
-import pandas as pd
 import string
 import random
 import json
 import re
 
-ascii_uppercase = string.ascii_uppercase
-ascii_lowercase = string.ascii_lowercase
-sPath = str | Path
-
-''' NOTES
+""" NOTES
 Details on distinguishing between dicts / classes etc
 https://towardsdatascience.com/battle-of-the-data-containers-which-python-typed-structure-is-the-best-6d28fde824e
 
 JSON Allowed types: dict list tuple str int float bool None
-'''
+"""
 
 today = datetime.today()
 
+ascii_uppercase = string.ascii_uppercase
+ascii_lowercase = string.ascii_lowercase
+sPath = str | Path
+
 JSON_INDENT = 4
 JSON_SEP = (',', ':')
+
+### PYFIG ###
+def load_pyfig(cfg_path: Path):
+    c = runpy.run_path(cfg_path)
+    return c.get('Pyfig', c.get(cfg_path.with_suffix('').name))
+
+def clean(path=None, n_clean = 40):
+    if path:
+        path = Path(path)
+        print('Cleaning directory ', path)
+        exp_all = [p for p in path.iterdir() if p.is_dir()]    
+        if len(exp_all) > n_clean:
+            dump_dir = path / (date_to_num()+'_'+today)
+            [p.rename(dump_dir / p.name) for p in exp_all]
 
 def gen_datetime() -> str:
     return datetime.now().strftime("%d%b%H%M%S")
@@ -36,8 +49,6 @@ def date_to_num():
     tdelta = today - datetime(year=today.year, month=1, day=1) 
     name = f'{str(today.year)[2:]}_{tdelta.days}_{str(tdelta.microseconds)[-4:]}'
     return name
-
-today_n = date_to_num()
 
 ### HANDLING DIRECTORIES & PATHS ###
 def mkdir(path: Path) -> Path:
@@ -127,20 +138,14 @@ def gen_alphanum(n: int = 7, test=False):
 def add_to_Path(path: Path, string: str | Path):
         return Path(str(path) + str(string))
 
-def iterate_folder(folder: Path, on=True):
-    if not on:
-        return folder
-    if folder.exists():
-        if '-':
-            ...
-    if re.search(folder.name, {folder.name})
-    if re.search(folder.name, f'-[0-9]*'):
-        print(f'exp {folder} exists')
-        exist = [int(x.name.split('-')[-1]) for x in folder.parent.iterdir() if '-' in x.name]
-        for i in range(100):
-            if not i in exist:
-                folder = add_to_Path(folder, f'-{i}')
-    print(f'created exp_dir {folder}')
+def iterate_folder(folder: Path, iter_exp_dir):
+    if iter_exp_dir and folder.exists():
+        if re.search(folder.name, f'-[0-9]*'):
+            exist = [int(x.name.split('-')[-1]) for x in folder.parent.iterdir() if '-' in x.name]
+            for i in range(100):
+                if not i in exist:
+                    folder = add_to_Path(folder, f'-{i}')
+        print(f'created exp_dir {folder}')
     return folder
 
 def remove_path(path: Path):

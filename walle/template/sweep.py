@@ -3,7 +3,7 @@ from walle.pyfig import Pyfig
 from walle.bureaucrat import remove_path
 # run_cmd(f'export WANDB_DIR={c.exp_path}', cwd='.')  # set wandb before the path changes
 
-c = Pyfig()
+c = Pyfig(remote=True, sweep=True, sweep_params=None)
 
 """
 TODO

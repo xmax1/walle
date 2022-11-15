@@ -1,7 +1,5 @@
-import re
 from pathlib import Path
-import runpy
-from .bureaucrat import iterate_folder, gen_alphanum, mkdir, date_to_num, today
+from walle.bureaucrat import iterate_folder, gen_alphanum, mkdir
 
 import sys
 from pathlib import Path
@@ -33,7 +31,7 @@ class Pyfig:
     sys_arg: dict = sys.argv[1:]
 
     seed:               int     = 808017424         # grr
-    env:                str     = 'dex'             # CONDA ENV
+    env:                str     = ''                # CONDA ENV
     commit_id:          str     = git_commit_id()
     n_device:           int     = property(lambda _: count_gpu())
     job_type:           str     = 'training'
@@ -57,13 +55,14 @@ class Pyfig:
     log_metric_step:    int     = 100
     log_state_step:     int     = 1000         # wandb entity
 
+    project:            str     = ''
     project_dir:        Path    = Path().absolute().parent
     server_project_dir: Path    = property(lambda _: _.project_dir)
 
-    project:            str     = property(lambda _: _.project_dir.name)
     project_exp_dir:    Path    = property(lambda _: _.project_dir / 'exp')
     project_cfg_dir:    Path    = property(lambda _: _.project_dir / 'cfg')
-    exp_path:           Path    = property(lambda _: Path(_.project_exp_dir, _.exp_name, _.exp_id))
+    iter_exp_dir:       bool    = True
+    exp_path:           Path    = property(lambda _: iterate_folder(_.project_exp_dir, _.exp_name, _.iter_exp_dir) / _.exp_id)
 
     data_path:          Path    = Path('~/data/a_data_file')
     server:             str     = 'server_id'   # SERVER
@@ -72,39 +71,18 @@ class Pyfig:
     git_remote:         str     = 'origin'
     git_branch:         str     = 'main'
 
-    slurm = Slurm(
-        output          = TMP / 'o-%j.out',
-        error           = TMP / 'e-%j.err',
-        mail_type       = 'FAIL',
-        partition       ='sm3090',
-        nodes           = 1,                # n_node
-        ntasks          = 8,                # n_cpu
-        cpus_per_task   = 1,     
-        time            = '0-12:00:00',     # D-HH:MM:SS
-        gres            = 'gpu:RTX3090:1',
-        job_name        = property(lambda _: _.exp_name),  # this does not call the instance it is in
-    )
+    slurm: Slurm = Slurm()
+    sbatch: property = sbatch
 
-    sbatch = property(lambda _: f"""
-        module purge 
-        source ~/.bashrc 
-        module load GCC 
-        module load CUDA/11.4.1 
-        module load cuDNN/8.2.2.26-CUDA-11.4.1 
-        conda activate {_.env} 
-        export MKL_NUM_THREADS=1 
-        export NUMEXPR_NUM_THREADS=1 
-        export OMP_NUM_THREADS=1 
-        export OPENBLAS_NUM_THREADS=1
-        pwd
-        nvidia-smi
-        mv_cmd = f'mv {TMP}/o-$SLURM_JOB_ID.out {TMP}/e-$SLURM_JOB_ID.err $out_dir'
-    """
-    )
+    def __init__(self, remote=False, sweep=False):
+        mkdir(self.exp_path)
 
-    def __init__(self, submit=False, sweep=False):
-        if submit:
-            if sweep:
+    def run_remote(self, sweep=False):
+        if sweep:
+            if self.sweep_id:
+                cmd = self.cfg_to_cmd()
+                self.run_slurm(cmd=cmd)
+            else:  
                 self.sweep_id = wandb.sweep(
                     env     = f'conda activate {self.env};',
                     sweep   = self.sweep, 
@@ -114,12 +92,18 @@ class Pyfig:
                     run_cap = self.n_sweep
                 )
                 [self.run_slurm() for _ in range(self.n_sweep)]
-            else:
-                cmd = self.cfg_to_cmd()
-                self.run_slurm(cmd=cmd)
-        else:
-            mkdir(self.exp_path)
+                exit('Sweep submitted to slurm')         
 
+    def run_slurm(self, cmd='', sweep_id=''):
+        sweep_id = bool(self.sweep_id) * f' --sweep_id {self.sweep_id} '
+        cmd = f'python -u {self.run_path} ' + sweep_id + cmd
+        self.slurm.sbatch(
+            self.sbatch + 
+            f'out_dir={(mkdir(self.exp_path/"out"))} \n \
+            {cmd} | tee $out_dir/py.out \n \
+            date "+%B %V %T.%3N" '
+        )
+  
     @property
     def dict(self,):
         d = self._dict_from_cls(self)
@@ -161,22 +145,32 @@ class Pyfig:
         d = self._dict_from_cls(self, get_prop=False)
         return {f'--{k}':str(v) for k,v in d.items()}
 
-    def run_slurm(self, cmd=None):
-        sweep_id = bool(self.sweep_id) * f' --sweep_id {self.sweep_id} '
-        cmd = f'python -u {self.run_path} ' + sweep_id + cmd
-        self.slurm.sbatch(
-            self.sbatch + 
-            f'out_dir={(mkdir(self.exp_path/"out"))} \n \
-            {cmd} | tee $out_dir/py.out \n \
-            date "+%B %V %T.%3N" '
-        )
+slurm = Slurm(
+        output          = TMP / 'o-%j.out',
+        error           = TMP / 'e-%j.err',
+        mail_type       = 'FAIL',
+        partition       ='sm3090',
+        nodes           = 1,                # n_node
+        ntasks          = 8,                # n_cpu
+        cpus_per_task   = 1,     
+        time            = '0-12:00:00',     # D-HH:MM:SS
+        gres            = 'gpu:RTX3090:1',
+        job_name        = property(lambda _: _.exp_name),  # this does not call the instance it is in
+    )
 
-def pyfig(cfg_path: Path):
-    c = runpy.run_path(cfg_path)
-    return c.get('Pyfig', c.get(cfg_path.with_suffix('').name))
-
-n_clean = 40
-exp_all = [p for p in Pyfig.project_exp_dir.iterdir() if p.is_dir()]    
-if len(exp_all) > n_clean:
-    dump_dir = Pyfig.project_exp_dir / (date_to_num()+'_'+today)
-    [p.rename(dump_dir / p.name) for p in exp_all]
+sbatch = property(lambda _: f"""
+    module purge 
+    source ~/.bashrc 
+    module load GCC 
+    module load CUDA/11.4.1 
+    module load cuDNN/8.2.2.26-CUDA-11.4.1 
+    conda activate {_.env} 
+    export MKL_NUM_THREADS=1 
+    export NUMEXPR_NUM_THREADS=1 
+    export OMP_NUM_THREADS=1 
+    export OPENBLAS_NUM_THREADS=1
+    pwd
+    nvidia-smi
+    mv_cmd = f'mv {TMP}/o-$SLURM_JOB_ID.out {TMP}/e-$SLURM_JOB_ID.err $out_dir'
+"""
+)

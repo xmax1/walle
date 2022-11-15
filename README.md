@@ -1,3 +1,13 @@
+# TODO
+- feed in project_all_dir to project_dir
+- same server
+- same exp name
+- same cfg
+- sync make pyfig just template
+- wlaunch look for project_pyfig
+- wlaunch finalise
+- git submission functions
+
 # Journey
 - All these exps assume loading cfg.cfg c
 - Provide --cfg_path path for other config

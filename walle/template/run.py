@@ -1,8 +1,13 @@
 import wandb
-from walle.pyfig import pyfig
 import numpy as np
 
-c = pyfig(cfg_path='./cfg.py', iterate=False) # This is the base config
+# If from some weird location
+# from walle.bureaucrat import load_pyfig
+# c = load_pyfig(cfg_path='./pyfig.py', iterate=False) # This is the base config
+# Otherwise
+from pyfig import Pyfig
+
+c = Pyfig(remote=False, sweep=False)
 
 if c.sweep_id:
     wandb.agent(c.sweep_id, count=1)  # function=main
